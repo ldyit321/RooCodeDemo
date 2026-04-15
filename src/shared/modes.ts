@@ -45,7 +45,12 @@ export function getToolsForMode(groups: readonly GroupEntry[]): string[] {
 export const modes = DEFAULT_MODES
 
 // Export the default mode slug
-export const defaultModeSlug = modes[0].slug
+export const huayunSecondaryDevModeSlug = "huayun-secondary-dev"
+export const defaultModeSlug = modes.some((mode) => mode.slug === huayunSecondaryDevModeSlug)
+	? huayunSecondaryDevModeSlug
+	: modes[0].slug
+
+const getDefaultMode = () => modes.find((mode) => mode.slug === defaultModeSlug) ?? modes[0]
 
 // Helper functions
 export function getModeBySlug(slug: string, customModes?: ModeConfig[]): ModeConfig | undefined {
@@ -122,7 +127,7 @@ export function getModeSelection(mode: string, promptComponent?: PromptComponent
 	}
 
 	// Otherwise, use built-in mode as base and merge with promptComponent
-	const baseMode = builtInMode || modes[0] // fallback to default mode
+	const baseMode = builtInMode || getDefaultMode()
 
 	return {
 		roleDefinition: promptComponent?.roleDefinition || baseMode.roleDefinition || "",
@@ -184,7 +189,7 @@ export async function getFullModeDetails(
 	},
 ): Promise<ModeConfig> {
 	// First get the base mode config from custom modes or built-in modes
-	const baseMode = getModeBySlug(modeSlug, customModes) || modes.find((m) => m.slug === modeSlug) || modes[0]
+	const baseMode = getModeBySlug(modeSlug, customModes) || modes.find((m) => m.slug === modeSlug) || getDefaultMode()
 
 	// Check for any prompt component overrides
 	const promptComponent = customModePrompts?.[modeSlug]

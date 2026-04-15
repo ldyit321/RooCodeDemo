@@ -9,7 +9,17 @@ import { useExtensionState } from "@/context/ExtensionStateContext"
 
 import { DeleteTaskDialog } from "../history/DeleteTaskDialog"
 import { ShareButton } from "./ShareButton"
-import { CopyIcon, CheckIcon, DownloadIcon, Trash2Icon, FileJsonIcon, MessageSquareCodeIcon } from "lucide-react"
+import {
+	CopyIcon,
+	CheckIcon,
+	DownloadIcon,
+	Trash2Icon,
+	FileJsonIcon,
+	MessageSquareCodeIcon,
+	EyeIcon,
+	PlayIcon,
+	PackageIcon,
+} from "lucide-react"
 import { LucideIconButton } from "./LucideIconButton"
 
 interface TaskActionsProps {
@@ -21,7 +31,8 @@ export const TaskActions = ({ item, buttonsDisabled }: TaskActionsProps) => {
 	const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null)
 	const { t } = useTranslation()
 	const { copyWithFeedback, showCopyFeedback } = useCopyToClipboard()
-	const { debug } = useExtensionState()
+	const { debug, mode } = useExtensionState()
+	const isHuayunSecondaryDevMode = mode === "huayun-secondary-dev"
 
 	return (
 		<div className="flex flex-row items-center -ml-0.5 mt-1 gap-1">
@@ -29,6 +40,25 @@ export const TaskActions = ({ item, buttonsDisabled }: TaskActionsProps) => {
 				icon={DownloadIcon}
 				title={t("chat:task.export")}
 				onClick={() => vscode.postMessage({ type: "exportCurrentTask" })}
+			/>
+			{isHuayunSecondaryDevMode && (
+				<>
+					<LucideIconButton
+						icon={PlayIcon}
+						title="Run secondary dev workspace"
+						onClick={() => vscode.postMessage({ type: "runSecondaryDevWorkspace" })}
+					/>
+					<LucideIconButton
+						icon={PackageIcon}
+						title="Package secondary dev workspace"
+						onClick={() => vscode.postMessage({ type: "packageSecondaryDevWorkspace" })}
+					/>
+				</>
+			)}
+			<LucideIconButton
+				icon={EyeIcon}
+				title="Preview frontend"
+				onClick={() => vscode.postMessage({ type: "openFrontendPreview" })}
 			/>
 
 			{item?.task && (

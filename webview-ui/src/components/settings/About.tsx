@@ -11,6 +11,7 @@ import { Package } from "@roo/package"
 import { vscode } from "@/utils/vscode"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui"
+import { EXPERIENCE_WEBSITE_URL, OFFICIAL_WEBSITE_URL } from "@src/constants/branding"
 
 import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
@@ -102,8 +103,8 @@ export const About = ({ telemetrySetting, setTelemetrySetting, debug, setDebug, 
 							<Trans
 								i18nKey="settings:about.community"
 								components={{
-									redditLink: <VSCodeLink href="https://reddit.com/r/RooCode" />,
-									discordLink: <VSCodeLink href="https://discord.gg/roocode" />,
+									redditLink: <VSCodeLink href={OFFICIAL_WEBSITE_URL} />,
+									discordLink: <VSCodeLink href={EXPERIENCE_WEBSITE_URL} />,
 								}}
 							/>
 						</span>

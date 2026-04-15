@@ -6,22 +6,20 @@ import {
 	VSCodeRadioGroup,
 	VSCodeTextField,
 } from "@vscode/webview-ui-toolkit/react"
+import { ArrowLeft, ArrowRight, BadgeInfo, Brain, TriangleAlert } from "lucide-react"
 
 import type { ProviderSettings } from "@roo-code/types"
 
+import { Button } from "@src/components/ui"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
+import { BRAND_INTRO, BRAND_NAME, BRAND_SETUP_HINT, CLOUD_BRAND_NAME } from "@src/constants/branding"
 import { validateApiConfiguration } from "@src/utils/validate"
 import { vscode } from "@src/utils/vscode"
-import { useAppTranslation } from "@src/i18n/TranslationContext"
-import { Button } from "@src/components/ui"
 
-import ApiOptions from "../settings/ApiOptions"
 import { Tab, TabContent } from "../common/Tab"
+import ApiOptions from "../settings/ApiOptions"
 
 import RooHero from "./RooHero"
-import { Trans } from "react-i18next"
-import { ArrowLeft, ArrowRight, BadgeInfo, Brain, TriangleAlert } from "lucide-react"
-import { buildDocLink } from "@/utils/docLinks"
 
 type ProviderOption = "roo" | "custom"
 type AuthOrigin = "landing" | "providerSelection"
@@ -35,7 +33,7 @@ const WelcomeViewProvider = () => {
 		cloudIsAuthenticated,
 		cloudAuthSkipModel,
 	} = useExtensionState()
-	const { t } = useAppTranslation()
+
 	const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined)
 	const [selectedProvider, setSelectedProvider] = useState<ProviderOption | null>(null)
 	const [authInProgress, setAuthInProgress] = useState(false)
@@ -45,20 +43,14 @@ const WelcomeViewProvider = () => {
 	const [manualErrorMessage, setManualErrorMessage] = useState<boolean | undefined>(undefined)
 	const manualUrlInputRef = useRef<HTMLInputElement | null>(null)
 
-	// When auth completes during the provider signup flow, either:
-	// 1. If user skipped model selection (cloudAuthSkipModel=true), navigate to provider selection with "custom" selected
-	// 2. Otherwise, save the Roo config and navigate to chat
 	useEffect(() => {
 		if (cloudIsAuthenticated && authInProgress) {
 			if (cloudAuthSkipModel) {
-				// User skipped model selection during signup - navigate to provider selection with 3rd-party selected
 				setSelectedProvider("custom")
 				setAuthInProgress(false)
 				setShowManualEntry(false)
-				// Clear the flag so it doesn't affect future flows
 				vscode.postMessage({ type: "clearCloudAuthSkipModel" })
 			} else {
-				// Auth completed from provider signup flow - save the config now
 				const rooConfig: ProviderSettings = {
 					apiProvider: "roo",
 				}
@@ -71,9 +63,8 @@ const WelcomeViewProvider = () => {
 				setShowManualEntry(false)
 			}
 		}
-	}, [cloudIsAuthenticated, authInProgress, currentApiConfigName, cloudAuthSkipModel])
+	}, [authInProgress, cloudAuthSkipModel, cloudIsAuthenticated, currentApiConfigName])
 
-	// Focus the manual URL input when it becomes visible
 	useEffect(() => {
 		if (showManualEntry && manualUrlInputRef.current) {
 			setTimeout(() => {
@@ -82,25 +73,23 @@ const WelcomeViewProvider = () => {
 		}
 	}, [showManualEntry])
 
-	// Memoize the setApiConfigurationField function to pass to ApiOptions
 	const setApiConfigurationFieldForApiOptions = useCallback(
 		<K extends keyof ProviderSettings>(field: K, value: ProviderSettings[K]) => {
 			setApiConfiguration({ [field]: value })
 		},
-		[setApiConfiguration], // setApiConfiguration from context is stable
+		[setApiConfiguration],
 	)
 
 	const handleGetStarted = useCallback(() => {
-		// Landing screen - always trigger auth with Roo
 		if (selectedProvider === null) {
 			setAuthOrigin("landing")
 			vscode.postMessage({ type: "rooCloudSignIn", useProviderSignup: true })
 			setAuthInProgress(true)
+			return
 		}
-		// Provider Selection screen
-		else if (selectedProvider === "roo") {
+
+		if (selectedProvider === "roo") {
 			if (cloudIsAuthenticated) {
-				// Already authenticated - save config and finish
 				const rooConfig: ProviderSettings = {
 					apiProvider: "roo",
 				}
@@ -110,32 +99,28 @@ const WelcomeViewProvider = () => {
 					apiConfiguration: rooConfig,
 				})
 			} else {
-				// Need to authenticate
 				setAuthOrigin("providerSelection")
 				vscode.postMessage({ type: "rooCloudSignIn", useProviderSignup: true })
 				setAuthInProgress(true)
 			}
-		} else {
-			// Custom provider - validate first
-			const error = apiConfiguration ? validateApiConfiguration(apiConfiguration) : undefined
-
-			if (error) {
-				setErrorMessage(error)
-				return
-			}
-
-			setErrorMessage(undefined)
-			vscode.postMessage({ type: "upsertApiConfiguration", text: currentApiConfigName, apiConfiguration })
+			return
 		}
-	}, [selectedProvider, cloudIsAuthenticated, apiConfiguration, currentApiConfigName])
+
+		const error = apiConfiguration ? validateApiConfiguration(apiConfiguration) : undefined
+		if (error) {
+			setErrorMessage(error)
+			return
+		}
+
+		setErrorMessage(undefined)
+		vscode.postMessage({ type: "upsertApiConfiguration", text: currentApiConfigName, apiConfiguration })
+	}, [apiConfiguration, cloudIsAuthenticated, currentApiConfigName, selectedProvider])
 
 	const handleNoAccount = useCallback(() => {
-		// Navigate to Provider Selection, defaulting to Roo option
 		setSelectedProvider("roo")
 	}, [])
 
 	const handleBackToLanding = useCallback(() => {
-		// Return to the landing screen
 		setSelectedProvider(null)
 		setErrorMessage(undefined)
 	}, [])
@@ -146,11 +131,7 @@ const WelcomeViewProvider = () => {
 		setManualUrl("")
 		setManualErrorMessage(false)
 
-		// Return to the appropriate screen based on origin
-		if (authOrigin === "providerSelection") {
-			// Keep selectedProvider as-is, user returns to Provider Selection
-		} else {
-			// Return to Landing
+		if (authOrigin !== "providerSelection") {
 			setSelectedProvider(null)
 		}
 		setAuthOrigin(null)
@@ -160,7 +141,6 @@ const WelcomeViewProvider = () => {
 		const url = e.target.value
 		setManualUrl(url)
 
-		// Auto-trigger authentication when a complete URL is pasted
 		setTimeout(() => {
 			if (url.trim() && url.includes("://") && url.includes("/auth/clerk/callback")) {
 				setManualErrorMessage(false)
@@ -183,63 +163,54 @@ const WelcomeViewProvider = () => {
 		vscode.postMessage({ type: "rooCloudSignIn", useProviderSignup: false })
 	}
 
-	// Render the waiting for cloud state
 	if (authInProgress) {
 		return (
 			<Tab>
-				<TabContent className="flex flex-col gap-4 p-6 justify-center">
+				<TabContent className="flex flex-col justify-center gap-4 p-6">
 					<div className="flex flex-col items-start gap-4 pt-8">
 						<VSCodeProgressRing className="size-6" />
-						<h2 className="my-0 text-xl font-semibold">{t("welcome:waitingForCloud.heading")}</h2>
-						<p className="text-vscode-descriptionForeground mt-0">
-							{t("welcome:waitingForCloud.description")}
+						<h2 className="my-0 text-xl font-semibold">正在连接 {CLOUD_BRAND_NAME}...</h2>
+						<p className="mt-0 text-vscode-descriptionForeground">
+							我们会在浏览器中完成云端登录或授权，然后回到这里继续配置模型与开发环境。
 						</p>
 
-						<div className="flex gap-2 items-start pr-4 text-vscode-descriptionForeground">
-							<BadgeInfo className="size-4 inline shrink-0" />
+						<div className="flex items-start gap-2 pr-4 text-vscode-descriptionForeground">
+							<BadgeInfo className="inline size-4 shrink-0" />
 							<p className="m-0">
-								<Trans
-									i18nKey="welcome:waitingForCloud.noPrompt"
-									components={{
-										clickHere: (
-											<button
-												onClick={handleOpenSignupUrl}
-												className="text-vscode-textLink-foreground hover:text-vscode-textLink-activeForeground underline cursor-pointer bg-transparent border-none p-0"
-											/>
-										),
-									}}
-								/>
+								如果浏览器没有自动打开，点击
+								<button
+									onClick={handleOpenSignupUrl}
+									className="mx-1 cursor-pointer border-none bg-transparent p-0 text-vscode-textLink-foreground underline hover:text-vscode-textLink-activeForeground">
+									这里
+								</button>
+								重新发起登录。
 							</p>
 						</div>
 
-						<div className="flex gap-2 items-start pr-4 text-vscode-descriptionForeground">
-							<TriangleAlert className="size-4 inline shrink-0" />
+						<div className="flex items-start gap-2 pr-4 text-vscode-descriptionForeground">
+							<TriangleAlert className="inline size-4 shrink-0" />
 							<div>
 								{!showManualEntry ? (
 									<p className="m-0">
-										<Trans
-											i18nKey="welcome:waitingForCloud.havingTrouble"
-											components={{
-												clickHere: (
-													<button
-														onClick={() => setShowManualEntry(true)}
-														className="text-vscode-textLink-foreground hover:text-vscode-textLink-activeForeground underline cursor-pointer bg-transparent border-none p-0	"
-													/>
-												),
-											}}
-										/>
+										如果已经完成登录但界面没有继续，点击
+										<button
+											onClick={() => setShowManualEntry(true)}
+											className="mx-1 cursor-pointer border-none bg-transparent p-0 text-vscode-textLink-foreground underline hover:text-vscode-textLink-activeForeground">
+											这里
+										</button>
+										手动粘贴回调地址。
 									</p>
 								) : (
 									<div className="w-full max-w-sm">
-										<p className="text-vscode-descriptionForeground mt-0">
-											{t("welcome:waitingForCloud.pasteUrl")}
+										<p className="mt-0 text-vscode-descriptionForeground">
+											粘贴浏览器中显示的回调地址：
 										</p>
-										<div className="flex gap-2 items-center">
+										<div className="flex items-center gap-2">
 											<VSCodeTextField
 												ref={manualUrlInputRef as any}
 												value={manualUrl}
 												onKeyUp={handleManualUrlChange}
-												placeholder="vscode://RooVeterinaryInc.roo-cline/auth/clerk/callback?state=..."
+												placeholder="vscode://your-extension-id/auth/clerk/callback?state=..."
 												className="flex-1"
 											/>
 											<Button
@@ -249,25 +220,9 @@ const WelcomeViewProvider = () => {
 												<ArrowRight className="size-4" />
 											</Button>
 										</div>
-										<p className="mt-2">
-											<Trans
-												i18nKey="welcome:waitingForCloud.docsLink"
-												components={{
-													DocsLink: (
-														<a
-															href={buildDocLink("roo-code-cloud/login", "setup")}
-															target="_blank"
-															rel="noopener noreferrer"
-															className="text-vscode-textLink-foreground hover:underline">
-															{t("common:docsLink.label")}
-														</a>
-													),
-												}}
-											/>
-										</p>
 										{manualUrl && manualErrorMessage && (
-											<p className="text-vscode-errorForeground mt-2">
-												{t("welcome:waitingForCloud.invalidURL")}
+											<p className="mt-2 text-vscode-errorForeground">
+												这看起来不是有效的回调地址，请重新复制浏览器中的完整链接。
 											</p>
 										)}
 									</div>
@@ -279,7 +234,7 @@ const WelcomeViewProvider = () => {
 					<div className="mt-4">
 						<Button onClick={handleGoBack} variant="secondary">
 							<ArrowLeft className="size-4" />
-							{t("welcome:waitingForCloud.goBack")}
+							返回
 						</Button>
 					</div>
 				</TabContent>
@@ -287,37 +242,32 @@ const WelcomeViewProvider = () => {
 		)
 	}
 
-	// Landing screen - shown when selectedProvider === null
 	if (selectedProvider === null) {
 		return (
 			<Tab>
-				<TabContent className="relative flex flex-col gap-4 p-6 justify-center">
+				<TabContent className="relative flex flex-col justify-center gap-4 p-6">
 					<RooHero />
-					<h2 className="mt-0 mb-0 text-xl">{t("welcome:landing.greeting")}</h2>
+					<h2 className="mb-0 mt-0 text-xl">欢迎使用 {BRAND_NAME}</h2>
 
 					<div className="space-y-4 leading-normal">
-						<p className="text-base text-vscode-foreground">
-							<Trans i18nKey="welcome:landing.introduction" />
-						</p>
-						<p className="mb-0 font-semibold">
-							<Trans i18nKey="welcome:landing.accountMention" />
-						</p>
+						<p className="text-base text-vscode-foreground">{BRAND_INTRO}</p>
+						<p className="mb-0 font-semibold">{BRAND_SETUP_HINT}</p>
 					</div>
 
-					<div className="mt-2 flex gap-2 items-center">
+					<div className="mt-2 flex items-center gap-2">
 						<Button onClick={handleGetStarted} variant="primary">
-							{t("welcome:landing.getStarted")}
+							开始配置
 						</Button>
 						<VSCodeLink onClick={handleNoAccount} className="cursor-pointer">
-							{t("welcome:landing.noAccount")}
+							直接选择模型提供方
 						</VSCodeLink>
 					</div>
 
 					<div className="absolute bottom-6 left-6">
 						<button
 							onClick={() => vscode.postMessage({ type: "importSettings" })}
-							className="cursor-pointer bg-transparent border-none p-0 text-vscode-foreground hover:underline">
-							{t("welcome:importSettings")}
+							className="cursor-pointer border-none bg-transparent p-0 text-vscode-foreground hover:underline">
+							导入设置
 						</button>
 					</div>
 				</TabContent>
@@ -325,15 +275,14 @@ const WelcomeViewProvider = () => {
 		)
 	}
 
-	// Provider Selection screen - shown when selectedProvider is "roo" or "custom"
 	return (
 		<Tab>
-			<TabContent className="flex flex-col gap-4 p-6 justify-center">
+			<TabContent className="flex flex-col justify-center gap-4 p-6">
 				<Brain className="size-8" strokeWidth={1.5} />
-				<h2 className="mt-0 mb-0 text-xl">{t("welcome:providerSignup.heading")}</h2>
+				<h2 className="mb-0 mt-0 text-xl">选择模型提供方</h2>
 
 				<p className="text-base text-vscode-foreground">
-					<Trans i18nKey="welcome:providerSignup.chooseProvider" />
+					{BRAND_NAME} 需要接入一个大模型提供方才能开始工作，后续也可以继续增加更多配置。
 				</p>
 
 				<div>
@@ -344,40 +293,28 @@ const WelcomeViewProvider = () => {
 								(e.target as HTMLInputElement)) as HTMLInputElement
 							setSelectedProvider(target.value as ProviderOption)
 						}}>
-						{/* Roo Code Router Option */}
 						<VSCodeRadio value="roo" className="flex items-start gap-2">
-							<div className="flex-1 space-y-1 cursor-pointer">
-								<p className="text-lg font-semibold block -mt-1">
-									{t("welcome:providerSignup.rooCloudProvider")}
-								</p>
-								<p className="text-base text-vscode-descriptionForeground mt-0">
-									{t("welcome:providerSignup.rooCloudDescription")}{" "}
-									<VSCodeLink
-										href="https://roocode.com/provider/pricing?utm_source=extension&utm_medium=welcome-screen&utm_campaign=provider-signup&utm_content=learn-more"
-										className="cursor-pointer">
-										{t("welcome:providerSignup.learnMore")}
-									</VSCodeLink>
+							<div className="flex-1 cursor-pointer space-y-1">
+								<p className="block -mt-1 text-lg font-semibold">{CLOUD_BRAND_NAME}</p>
+								<p className="mt-0 text-base text-vscode-descriptionForeground">
+									推荐用于快速开始的托管方案，适合先跑通欢迎页、预览、对话和代码生成流程。
 								</p>
 							</div>
 						</VSCodeRadio>
 
-						{/* Use Another Provider Option */}
 						<VSCodeRadio value="custom" className="flex items-start gap-2">
-							<div className="flex-1 space-y-1 cursor-pointer">
-								<p className="text-lg font-semibold block -mt-1">
-									{t("welcome:providerSignup.useAnotherProvider")}
-								</p>
-								<p className="text-base text-vscode-descriptionForeground mt-0">
-									{t("welcome:providerSignup.useAnotherProviderDescription")}
+							<div className="flex-1 cursor-pointer space-y-1">
+								<p className="block -mt-1 text-lg font-semibold">第三方提供方</p>
+								<p className="mt-0 text-base text-vscode-descriptionForeground">
+									填写你自己的 API Key，使用现有模型服务开始开发。
 								</p>
 							</div>
 						</VSCodeRadio>
 					</VSCodeRadioGroup>
 
-					{/* Expand API options only when custom provider is selected, max height is used to force a transition */}
-					<div className="mb-8 border-l-2 border-vscode-panel-border pl-6 ml-[7px]">
+					<div className="mb-8 ml-[7px] border-l-2 border-vscode-panel-border pl-6">
 						<div
-							className={`overflow-clip transition-[max-height] ease-in-out duration-300 ${selectedProvider === "custom" ? "max-h-[600px]" : "max-h-0"}`}>
+							className={`overflow-clip transition-[max-height] duration-300 ease-in-out ${selectedProvider === "custom" ? "max-h-[600px]" : "max-h-0"}`}>
 							<ApiOptions
 								fromWelcomeView
 								apiConfiguration={apiConfiguration || {}}
@@ -393,10 +330,10 @@ const WelcomeViewProvider = () => {
 				<div className="-mt-4 flex gap-2">
 					<Button onClick={handleBackToLanding} variant="secondary">
 						<ArrowLeft className="size-4" />
-						{t("welcome:providerSignup.goBack")}
+						返回
 					</Button>
 					<Button onClick={handleGetStarted} variant="primary">
-						{t("welcome:providerSignup.finish")} →
+						完成配置
 					</Button>
 				</div>
 			</TabContent>

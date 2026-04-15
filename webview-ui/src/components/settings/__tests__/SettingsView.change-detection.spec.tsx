@@ -218,6 +218,9 @@ vi.mock("../TerminalSettings", () => ({
 vi.mock("../ExperimentalSettings", () => ({
 	ExperimentalSettings: () => null,
 }))
+vi.mock("../SecondaryDevSettings", () => ({
+	SecondaryDevSettings: () => null,
+}))
 vi.mock("../LanguageSettings", () => ({
 	LanguageSettings: () => null,
 }))

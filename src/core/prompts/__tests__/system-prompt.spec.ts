@@ -49,7 +49,7 @@ import { ModeConfig } from "@roo-code/types"
 
 import { SYSTEM_PROMPT } from "../system"
 import { McpHub } from "../../../services/mcp/McpHub"
-import { defaultModeSlug, modes, Mode } from "../../../shared/modes"
+import { defaultModeSlug, getModeBySlug, Mode } from "../../../shared/modes"
 import "../../../utils/path"
 import { addCustomInstructions } from "../sections/custom-instructions"
 import { MultiSearchReplaceDiffStrategy } from "../../diff/strategies/multi-search-replace"
@@ -58,6 +58,8 @@ import { MultiSearchReplaceDiffStrategy } from "../../diff/strategies/multi-sear
 vi.mock("../sections/modes", () => ({
 	getModesSection: vi.fn().mockImplementation(async () => `====\n\nMODES\n\n- Test modes section`),
 }))
+
+const defaultMode = getModeBySlug(defaultModeSlug)!
 
 // Mock the custom instructions
 vi.mock("../sections/custom-instructions", () => {
@@ -409,7 +411,7 @@ describe("SYSTEM_PROMPT", () => {
 		// Role definition from promptComponent should be at the top
 		expect(prompt.indexOf("Custom prompt role definition")).toBeLessThan(prompt.indexOf("TOOL USE"))
 		// Should not contain the default mode's role definition
-		expect(prompt).not.toContain(modes[0].roleDefinition)
+		expect(prompt).not.toContain(defaultMode.roleDefinition)
 	})
 
 	it("should fallback to modeConfig roleDefinition when promptComponent has no roleDefinition", async () => {
@@ -436,7 +438,7 @@ describe("SYSTEM_PROMPT", () => {
 		)
 
 		// Should use the default mode's role definition
-		expect(prompt.indexOf(modes[0].roleDefinition)).toBeLessThan(prompt.indexOf("TOOL USE"))
+		expect(prompt.indexOf(defaultMode.roleDefinition)).toBeLessThan(prompt.indexOf("TOOL USE"))
 	})
 
 	it("should exclude update_todo_list tool when todoListEnabled is false", async () => {
@@ -490,8 +492,7 @@ describe("SYSTEM_PROMPT", () => {
 			settings, // settings
 		)
 
-		// update_todo_list is still referenced by mode instructions, but tool catalogs are not embedded.
-		expect(prompt).toContain("update_todo_list")
+		// Tool catalogs are not embedded in the prompt.
 		expect(prompt).not.toContain("## update_todo_list")
 	})
 
@@ -518,8 +519,7 @@ describe("SYSTEM_PROMPT", () => {
 			settings, // settings
 		)
 
-		// update_todo_list is still referenced by mode instructions, but tool catalogs are not embedded.
-		expect(prompt).toContain("update_todo_list")
+		// Tool catalogs are not embedded in the prompt.
 		expect(prompt).not.toContain("## update_todo_list")
 	})
 
@@ -568,7 +568,7 @@ describe("SYSTEM_PROMPT", () => {
 		expect(prompt).not.toContain("Examples:")
 
 		// Should still contain role definition and other non-XML sections
-		expect(prompt).toContain(modes[0].roleDefinition)
+		expect(prompt).toContain(defaultMode.roleDefinition)
 		expect(prompt).toContain("CAPABILITIES")
 		expect(prompt).toContain("RULES")
 		expect(prompt).toContain("SYSTEM INFORMATION")

@@ -29,6 +29,7 @@ import {
 	ArrowLeft,
 	GitCommitVertical,
 	GraduationCap,
+	Wrench,
 } from "lucide-react"
 
 import {
@@ -78,6 +79,7 @@ import PromptsSettings from "./PromptsSettings"
 import { SlashCommandsSettings } from "./SlashCommandsSettings"
 import { SkillsSettings } from "./SkillsSettings"
 import { UISettings } from "./UISettings"
+import { SecondaryDevSettings } from "./SecondaryDevSettings"
 import ModesView from "../modes/ModesView"
 import McpView from "../mcp/McpView"
 import { WorktreesView } from "../worktrees/WorktreesView"
@@ -108,6 +110,7 @@ export const sectionNames = [
 	"mcp",
 	"worktrees",
 	"prompts",
+	"secondaryDev",
 	"ui",
 	"experimental",
 	"language",
@@ -115,6 +118,53 @@ export const sectionNames = [
 ] as const
 
 export type SectionName = (typeof sectionNames)[number]
+
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "")
+
+const trimLeadingSlash = (value: string) => value.replace(/^\/+/, "")
+
+const normalizeAuthorizePath = (value: string) => trimLeadingSlash(value.trim())
+
+const buildAuthorizationUrl = (baseUrl: string, authorizePath: string) => {
+	const normalizedBaseUrl = trimTrailingSlash(baseUrl.trim())
+	const normalizedAuthorizePath = normalizeAuthorizePath(authorizePath)
+
+	if (!normalizedBaseUrl || !normalizedAuthorizePath) {
+		return ""
+	}
+
+	return `${normalizedBaseUrl}/${normalizedAuthorizePath}`
+}
+
+const deriveAuthorizePath = (baseUrl: string, authorizationUrl: string) => {
+	const normalizedBaseUrl = trimTrailingSlash(baseUrl.trim())
+	const normalizedAuthorizationUrl = authorizationUrl.trim()
+
+	if (!normalizedBaseUrl || !normalizedAuthorizationUrl) {
+		return ""
+	}
+
+	if (!normalizedAuthorizationUrl.startsWith(normalizedBaseUrl)) {
+		return ""
+	}
+
+	return normalizeAuthorizePath(normalizedAuthorizationUrl.slice(normalizedBaseUrl.length))
+}
+
+const deriveRelativePath = (baseUrl: string, fullUrl: string) => {
+	const normalizedBaseUrl = trimTrailingSlash(baseUrl.trim())
+	const normalizedFullUrl = fullUrl.trim()
+
+	if (!normalizedBaseUrl || !normalizedFullUrl) {
+		return ""
+	}
+
+	if (!normalizedFullUrl.startsWith(normalizedBaseUrl)) {
+		return ""
+	}
+
+	return normalizeAuthorizePath(normalizedFullUrl.slice(normalizedBaseUrl.length))
+}
 
 type SettingsViewProps = {
 	onDone: () => void
@@ -145,6 +195,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	const confirmDialogHandler = useRef<() => void>()
 
 	const [cachedState, setCachedState] = useState(() => extensionState)
+	const hasSyncedInitialExtensionState = useRef(false)
 
 	const {
 		alwaysAllowReadOnly,
@@ -189,6 +240,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		maxImageFileSize,
 		maxTotalImageSize,
 		customSupportPrompts,
+		secondaryDevBaseUrl,
+		secondaryDevClientId,
+		secondaryDevClientSecret,
+		secondaryDevAuthorizePath,
+		secondaryDevAuthorizationUrl,
+		secondaryDevFrontendRedirectUrl,
+		secondaryDevTokenPath,
+		secondaryDevTokenUrl,
+		secondaryDevScope,
 		profileThresholds,
 		alwaysAllowFollowupQuestions,
 		followupAutoApproveTimeoutMs,
@@ -206,6 +266,15 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 	} = cachedState
 
 	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
+
+	useEffect(() => {
+		if (!extensionState.didHydrateState || hasSyncedInitialExtensionState.current || isChangeDetected) {
+			return
+		}
+
+		setCachedState((prevCachedState) => ({ ...prevCachedState, ...extensionState }))
+		hasSyncedInitialExtensionState.current = true
+	}, [extensionState, isChangeDetected])
 
 	useEffect(() => {
 		// Update only when currentApiConfigName is changed.
@@ -360,6 +429,60 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 
 	const handleSubmit = () => {
 		if (isSettingValid) {
+			const preserveSecondaryDevSettings = activeTab !== "secondaryDev"
+			const resolveSecondaryDevSetting = (value: string | undefined, savedValue: string | undefined) => {
+				const trimmedValue = value?.trim() || ""
+
+				if (trimmedValue || !preserveSecondaryDevSettings) {
+					return trimmedValue
+				}
+
+				return savedValue?.trim() || ""
+			}
+			const resolvedSecondaryDevBaseUrl = resolveSecondaryDevSetting(
+				secondaryDevBaseUrl,
+				extensionState.secondaryDevBaseUrl,
+			)
+			const resolvedSecondaryDevClientId = resolveSecondaryDevSetting(
+				secondaryDevClientId,
+				extensionState.secondaryDevClientId,
+			)
+			const resolvedSecondaryDevClientSecret = resolveSecondaryDevSetting(
+				secondaryDevClientSecret,
+				extensionState.secondaryDevClientSecret,
+			)
+			const resolvedSecondaryDevScope = resolveSecondaryDevSetting(
+				secondaryDevScope,
+				extensionState.secondaryDevScope,
+			)
+			const resolvedSecondaryDevFrontendRedirectUrl = resolveSecondaryDevSetting(
+				secondaryDevFrontendRedirectUrl,
+				extensionState.secondaryDevFrontendRedirectUrl,
+			)
+			const resolvedAuthorizePath =
+				resolveSecondaryDevSetting(secondaryDevAuthorizePath, extensionState.secondaryDevAuthorizePath) ||
+				deriveAuthorizePath(
+					resolvedSecondaryDevBaseUrl,
+					resolveSecondaryDevSetting(
+						secondaryDevAuthorizationUrl,
+						extensionState.secondaryDevAuthorizationUrl,
+					),
+				)
+			const resolvedAuthorizationUrl =
+				buildAuthorizationUrl(resolvedSecondaryDevBaseUrl, resolvedAuthorizePath) ||
+				resolveSecondaryDevSetting(secondaryDevAuthorizationUrl, extensionState.secondaryDevAuthorizationUrl) ||
+				""
+			const resolvedTokenPath =
+				resolveSecondaryDevSetting(secondaryDevTokenPath, extensionState.secondaryDevTokenPath) ||
+				deriveRelativePath(
+					resolvedSecondaryDevBaseUrl,
+					resolveSecondaryDevSetting(secondaryDevTokenUrl, extensionState.secondaryDevTokenUrl),
+				)
+			const resolvedTokenUrl =
+				buildAuthorizationUrl(resolvedSecondaryDevBaseUrl, resolvedTokenPath) ||
+				resolveSecondaryDevSetting(secondaryDevTokenUrl, extensionState.secondaryDevTokenUrl) ||
+				""
+
 			vscode.postMessage({
 				type: "updateSettings",
 				updatedSettings: {
@@ -422,6 +545,16 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					openRouterImageGenerationSelectedModel,
 					experiments,
 					customSupportPrompts,
+					secondaryDevBaseUrl: resolvedSecondaryDevBaseUrl,
+					secondaryDevOAuthEnabled: true,
+					secondaryDevClientId: resolvedSecondaryDevClientId,
+					secondaryDevClientSecret: resolvedSecondaryDevClientSecret,
+					secondaryDevAuthorizePath: resolvedAuthorizePath,
+					secondaryDevAuthorizationUrl: resolvedAuthorizationUrl,
+					secondaryDevFrontendRedirectUrl: resolvedSecondaryDevFrontendRedirectUrl,
+					secondaryDevTokenPath: resolvedTokenPath,
+					secondaryDevTokenUrl: resolvedTokenUrl,
+					secondaryDevScope: resolvedSecondaryDevScope,
 				},
 			})
 
@@ -519,6 +652,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			{ id: "contextManagement", icon: Database },
 			{ id: "terminal", icon: SquareTerminal },
 			{ id: "prompts", icon: MessageSquare },
+			{ id: "secondaryDev", icon: Wrench },
 			{ id: "worktrees", icon: GitBranch },
 			{ id: "ui", icon: Glasses },
 			{ id: "experimental", icon: FlaskConical },
@@ -884,6 +1018,22 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 								setIncludeTaskHistoryInEnhance={(value) =>
 									setCachedStateField("includeTaskHistoryInEnhance", value)
 								}
+							/>
+						)}
+
+						{renderTab === "secondaryDev" && (
+							<SecondaryDevSettings
+								secondaryDevBaseUrl={secondaryDevBaseUrl}
+								secondaryDevClientId={secondaryDevClientId}
+								secondaryDevClientSecret={secondaryDevClientSecret}
+								secondaryDevAuthorizePath={secondaryDevAuthorizePath}
+								secondaryDevAuthorizationUrl={secondaryDevAuthorizationUrl}
+								secondaryDevFrontendRedirectUrl={secondaryDevFrontendRedirectUrl}
+								secondaryDevTokenPath={secondaryDevTokenPath}
+								secondaryDevTokenUrl={secondaryDevTokenUrl}
+								secondaryDevScope={secondaryDevScope}
+								setCachedStateField={setCachedStateField}
+								setErrorMessage={setErrorMessage}
 							/>
 						)}
 

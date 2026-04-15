@@ -8,6 +8,7 @@ import { MultiSearchReplaceDiffStrategy } from "../diff/strategies/multi-search-
 import { Package } from "../../shared/package"
 
 import { ClineProvider } from "./ClineProvider"
+import { augmentInstructionsWithSecondaryDevContext } from "./secondaryDevPromptContext"
 
 export const generateSystemPrompt = async (provider: ClineProvider, message: WebviewMessage) => {
 	const {
@@ -18,6 +19,16 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		experiments,
 		language,
 		enableSubfolderRules,
+		secondaryDevBaseUrl,
+		secondaryDevOAuthEnabled,
+		secondaryDevClientId,
+		secondaryDevClientSecret,
+		secondaryDevAuthorizePath,
+		secondaryDevAuthorizationUrl,
+		secondaryDevFrontendRedirectUrl,
+		secondaryDevTokenPath,
+		secondaryDevTokenUrl,
+		secondaryDevScope,
 	} = await provider.getState()
 
 	const diffStrategy = new MultiSearchReplaceDiffStrategy()
@@ -26,6 +37,20 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 
 	const mode = message.mode ?? defaultModeSlug
 	const customModes = await provider.customModesManager.getCustomModes()
+	const effectiveCustomInstructions = augmentInstructionsWithSecondaryDevContext({
+		mode,
+		customInstructions,
+		secondaryDevBaseUrl,
+		secondaryDevOAuthEnabled,
+		secondaryDevClientId,
+		secondaryDevClientSecret,
+		secondaryDevAuthorizePath,
+		secondaryDevAuthorizationUrl,
+		secondaryDevFrontendRedirectUrl,
+		secondaryDevTokenPath,
+		secondaryDevTokenUrl,
+		secondaryDevScope,
+	})
 
 	const rooIgnoreInstructions = provider.getCurrentTask()?.rooIgnoreController?.getInstructions()
 
@@ -48,7 +73,7 @@ export const generateSystemPrompt = async (provider: ClineProvider, message: Web
 		mode,
 		customModePrompts,
 		customModes,
-		customInstructions,
+		effectiveCustomInstructions,
 		experiments,
 		language,
 		rooIgnoreInstructions,

@@ -61,7 +61,12 @@ async function generatePrompt(
 	}
 
 	// Get the full mode config to ensure we have the role definition (used for groups, etc.)
-	const modeConfig = getModeBySlug(mode, customModeConfigs) || modes.find((m) => m.slug === mode) || modes[0]
+	const modeConfig =
+		getModeBySlug(mode, customModeConfigs) ||
+		modes.find((m) => m.slug === mode) ||
+		getModeBySlug(defaultModeSlug, customModeConfigs) ||
+		modes.find((m) => m.slug === defaultModeSlug) ||
+		modes[0]
 	const { roleDefinition, baseInstructions } = getModeSelection(mode, promptComponent, customModeConfigs)
 
 	// Check if MCP functionality should be included
@@ -135,7 +140,12 @@ export const SYSTEM_PROMPT = async (
 	const promptComponent = getPromptComponent(customModePrompts, mode)
 
 	// Get full mode config from custom modes or fall back to built-in modes
-	const currentMode = getModeBySlug(mode, customModes) || modes.find((m) => m.slug === mode) || modes[0]
+	const currentMode =
+		getModeBySlug(mode, customModes) ||
+		modes.find((m) => m.slug === mode) ||
+		getModeBySlug(defaultModeSlug, customModes) ||
+		modes.find((m) => m.slug === defaultModeSlug) ||
+		modes[0]
 
 	return generatePrompt(
 		context,

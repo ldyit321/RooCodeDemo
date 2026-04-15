@@ -1,39 +1,51 @@
-import { useState } from "react"
+import { Globe, MonitorPlay, Sparkles } from "lucide-react"
+
+import { Button } from "@src/components/ui"
+import {
+	BRAND_HEADLINE,
+	BRAND_NAME,
+	EXPERIENCE_WEBSITE_URL,
+	OFFICIAL_WEBSITE_URL,
+	PRODUCT_DESCRIPTION,
+	PRODUCT_NAME,
+} from "@src/constants/branding"
 
 const RooHero = () => {
-	const [imagesBaseUri] = useState(() => {
-		const w = window as any
-		return w.IMAGES_BASE_URI || ""
-	})
-	const [isHovered, setIsHovered] = useState(false)
-
 	return (
-		<div
-			className="mb-4 relative forced-color-adjust-none group flex flex-col items-center w-30 pt-4 overflow-clip"
-			onMouseEnter={() => setIsHovered(true)}
-			onMouseLeave={() => setIsHovered(false)}>
-			<div
-				style={{
-					backgroundColor: "var(--vscode-foreground)",
-					WebkitMaskImage: `url('${imagesBaseUri}/roo-logo.svg')`,
-					WebkitMaskRepeat: "no-repeat",
-					WebkitMaskSize: "contain",
-					maskImage: `url('${imagesBaseUri}/roo-logo.svg')`,
-					maskRepeat: "no-repeat",
-					maskSize: "contain",
-					animation: isHovered ? "smooth-bounce 1s ease-in-out infinite" : "none",
-				}}
-				className="z-5 mr-auto translate-y-0 transition-transform duration-500">
-				<img src={imagesBaseUri + "/roo-logo.svg"} alt="Roo logo" className="h-8 opacity-0" />
+		<div className="mb-4 relative w-full max-w-[640px] overflow-hidden rounded-[28px] border border-vscode-panel-border bg-[radial-gradient(circle_at_top_left,rgba(57,121,255,0.18),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(12,168,120,0.18),transparent_34%),var(--vscode-sideBar-background)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.18)] forced-color-adjust-none">
+			<div className="absolute -right-12 -top-10 h-36 w-36 rounded-full bg-cyan-400/10 blur-3xl" />
+			<div className="absolute -bottom-16 -left-8 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl" />
+			<div className="relative flex flex-col gap-4">
+				<div className="inline-flex w-fit items-center gap-2 rounded-full border border-vscode-panel-border bg-vscode-editor-background/70 px-3 py-1 text-xs uppercase tracking-[0.24em] text-vscode-descriptionForeground">
+					<Sparkles className="size-3.5" />
+					<span>{BRAND_NAME}</span>
+				</div>
+
+				<div className="space-y-2">
+					<p className="m-0 text-sm font-medium text-vscode-descriptionForeground">{PRODUCT_NAME}</p>
+					<h1 className="m-0 text-3xl font-semibold tracking-tight text-vscode-foreground">
+						{BRAND_HEADLINE}
+					</h1>
+					<p className="m-0 max-w-[560px] text-sm leading-6 text-vscode-descriptionForeground">
+						{PRODUCT_DESCRIPTION}
+					</p>
+				</div>
+
+				<div className="flex flex-wrap gap-3 pt-1">
+					<Button asChild variant="primary">
+						<a href={OFFICIAL_WEBSITE_URL} target="_blank" rel="noreferrer">
+							<Globe className="size-4" />
+							官网入口
+						</a>
+					</Button>
+					<Button asChild variant="outline">
+						<a href={EXPERIENCE_WEBSITE_URL} target="_blank" rel="noreferrer">
+							<MonitorPlay className="size-4" />
+							在线体验
+						</a>
+					</Button>
+				</div>
 			</div>
-			<div
-				className="w-[200%] -mt-0.25 h-0.5 overflow-hidden opacity-0 group-hover:opacity-70 transition-opacity duration-300"
-				data-testid="roo-hero-ground">
-				<div className="w-full border-b-1 group-hover:border-b-1 border-dashed border-vscode-foreground animate-ground-slide" />
-			</div>
-			<div className="z-4 bg-gradient-to-r from-transparent to-vscode-sideBar-background absolute top-0 right-0 bottom-0 w-10 opacity-100" />
-			<div className="z-3 bg-gradient-to-l from-transparent to-vscode-sideBar-background absolute top-0 left-0 bottom-0 w-10 opacity-100" />
-			<div className="bg-vscode-foreground/10 rounded-full size-10 z-1 absolute -bottom-4 animate-sun opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-[2px]" />
 		</div>
 	)
 }

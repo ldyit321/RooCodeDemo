@@ -215,6 +215,9 @@ vi.mock("../TerminalSettings", () => ({
 vi.mock("../ExperimentalSettings", () => ({
 	ExperimentalSettings: vi.fn(() => <div>ExperimentalSettings</div>),
 }))
+vi.mock("../SecondaryDevSettings", () => ({
+	SecondaryDevSettings: vi.fn(() => <div>SecondaryDevSettings</div>),
+}))
 vi.mock("../LanguageSettings", () => ({
 	LanguageSettings: vi.fn(() => <div>LanguageSettings</div>),
 }))

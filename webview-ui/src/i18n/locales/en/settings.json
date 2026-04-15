@@ -38,10 +38,11 @@
 		"terminal": "Terminal",
 		"slashCommands": "Slash Commands",
 		"prompts": "Prompts",
+		"secondaryDev": "Secondary Dev",
 		"ui": "UI",
 		"experimental": "Experimental",
 		"language": "Language",
-		"about": "About Roo Code"
+		"about": "About HUAYUN Code"
 	},
 	"about": {
 		"bugReport": {
@@ -59,7 +60,7 @@
 		"contact": {
 			"label": "Need to talk to us? Write"
 		},
-		"community": "Want tips or to just hang out with other Roo Code users? Join <redditLink>reddit.com/r/RooCode</redditLink> or <discordLink>discord.gg/roocode</discordLink>",
+		"community": "Want to learn more about the platform? Visit <redditLink>www.crowncad.com</redditLink> or try <discordLink>cad.crowncad.com</discordLink>",
 		"contactAndCommunity": "Contact & Community",
 		"manageSettings": "Manage Settings",
 		"debugMode": {
@@ -163,6 +164,64 @@
 		"requireCtrlEnterToSend": {
 			"label": "Require {{primaryMod}}+Enter to send messages",
 			"description": "When enabled, you must press {{primaryMod}}+Enter to send messages instead of just Enter"
+		}
+	},
+	"secondaryDev": {
+		"baseUrl": {
+			"label": "Base URL",
+			"description": "Required. This is the root address used by your secondary development project to call the target platform.",
+			"placeholder": "https://cad.crowncad.com"
+		},
+		"oauthEnabled": {
+			"label": "Enable OAuth2.0",
+			"description": "Turn this on when your secondary development flow needs OAuth2 authentication materials."
+		},
+		"clientId": {
+			"label": "Client ID",
+			"placeholder": "Enter your OAuth2 client ID"
+		},
+		"clientSecret": {
+			"label": "Client Secret",
+			"placeholder": "Enter your OAuth2 client secret"
+		},
+		"frontendRedirectUrl": {
+			"label": "Frontend OAuth Redirect URL",
+			"description": "Required. The platform redirects code and scope to this frontend URL; the frontend then calls the backend to exchange the token.",
+			"placeholder": "http://localhost:8080/token"
+		},
+		"authorizePath": {
+			"label": "Authorize Path",
+			"description": "Required. This path is combined with Base URL to generate the OAuth2 authorization address.",
+			"placeholder": "oauth/crownapi/authorize"
+		},
+		"authorizationUrl": {
+			"label": "Authorization URL",
+			"placeholder": "https://example.com/oauth/authorize"
+		},
+		"tokenUrl": {
+			"label": "Token URL",
+			"placeholder": "https://example.com/oauth/token"
+		},
+		"tokenPath": {
+			"label": "Token Path",
+			"description": "Required. This path is combined with Base URL to generate the OAuth2 token address.",
+			"placeholder": "oauth/token"
+		},
+		"scope": {
+			"label": "Scope",
+			"placeholder": "openid profile crowncad:document"
+		},
+		"validation": {
+			"baseUrlRequired": "Base URL is required for secondary development configuration.",
+			"baseUrlInvalid": "Base URL must be a valid absolute URL.",
+			"clientIdRequired": "Client ID is required when OAuth2.0 is enabled.",
+			"clientSecretRequired": "Client Secret is required when OAuth2.0 is enabled.",
+			"frontendRedirectUrlRequired": "Frontend OAuth Redirect URL is required when OAuth2.0 is enabled.",
+			"frontendRedirectUrlInvalid": "Frontend OAuth Redirect URL must be a valid absolute URL.",
+			"authorizePathRequired": "Authorize Path is required for OAuth2 secondary development.",
+			"authorizationUrlInvalid": "Authorization URL must be a valid absolute URL.",
+			"tokenPathRequired": "Token Path is required for OAuth2 secondary development.",
+			"tokenUrlInvalid": "Token URL must be a valid absolute URL."
 		}
 	},
 	"prompts": {
@@ -519,7 +578,7 @@
 			"draftModelDesc": "Draft model must be from the same model family for speculative decoding to work correctly.",
 			"selectDraftModel": "Select Draft Model",
 			"noModelsFound": "No draft models found. Please ensure LM Studio is running with Server Mode enabled.",
-			"description": "LM Studio allows you to run models locally on your computer. For instructions on how to get started, see their <a>quickstart guide</a>. You will also need to start LM Studio's <b>local server</b> feature to use it with this extension. <span>Note:</span> Roo Code uses complex prompts and works best with Claude models. Less capable models may not work as expected."
+			"description": "LM Studio allows you to run models locally on your computer. For instructions on how to get started, see their <a>quickstart guide</a>. You will also need to start LM Studio's <b>local server</b> feature to use it with this extension. <span>Note:</span> HUAYUN Code uses complex prompts and works best with capable coding models. Less capable models may not work as expected."
 		},
 		"ollama": {
 			"baseUrl": "Base URL (optional)",
@@ -529,11 +588,11 @@
 			"numCtx": "Context Window Size (num_ctx)",
 			"numCtxHelp": "Override the model's default context window size. Leave empty to use the model's Modelfile configuration. Minimum value is 128.",
 			"description": "Ollama allows you to run models locally on your computer. For instructions on how to get started, see their quickstart guide.",
-			"warning": "Note: Roo Code uses complex prompts and works best with Claude models. Less capable models may not work as expected."
+			"warning": "Note: HUAYUN Code uses complex prompts and works best with capable coding models. Less capable models may not work as expected."
 		},
 		"roo": {
-			"authenticatedMessage": "Securely authenticated through your Roo Code Cloud account.",
-			"connectButton": "Connect to Roo Code Cloud"
+			"authenticatedMessage": "Securely authenticated through your HUAYUN Code Cloud account.",
+			"connectButton": "Connect to HUAYUN Code Cloud"
 		},
 		"openRouter": {
 			"providerRouting": {
@@ -543,7 +602,7 @@
 			}
 		},
 		"customModel": {
-			"capabilities": "Configure the capabilities and pricing for your custom OpenAI-compatible model. Be careful when specifying the model capabilities, as they can affect how Roo Code performs.",
+			"capabilities": "Configure the capabilities and pricing for your custom OpenAI-compatible model. Be careful when specifying the model capabilities, as they can affect how HUAYUN Code performs.",
 			"maxTokens": {
 				"label": "Max Output Tokens",
 				"description": "Maximum number of tokens the model can generate in a response. (Specify -1 to allow the server to set the max tokens.)"
@@ -920,7 +979,7 @@
 		}
 	},
 	"modelPicker": {
-		"automaticFetch": "The extension automatically fetches the latest list of models available on <serviceLink>{{serviceName}}</serviceLink>. If you're unsure which model to choose, Roo Code works best with <defaultModelLink>{{defaultModelId}}</defaultModelLink>. You can also try searching \"free\" for no-cost options currently available.",
+		"automaticFetch": "The extension automatically fetches the latest list of models available on <serviceLink>{{serviceName}}</serviceLink>. If you're unsure which model to choose, HUAYUN Code works best with <defaultModelLink>{{defaultModelId}}</defaultModelLink>. You can also try searching \"free\" for no-cost options currently available.",
 		"label": "Model",
 		"searchPlaceholder": "Search",
 		"noMatchFound": "No match found",
@@ -930,7 +989,7 @@
 	"footer": {
 		"telemetry": {
 			"label": "Allow anonymous error and usage reporting",
-			"description": "Help improve Roo Code by sending anonymous usage data and error reports. This telemetry does not collect code, prompts or personal information. See our <privacyLink>privacy policy</privacyLink> for more details."
+			"description": "Help improve HUAYUN Code by sending anonymous usage data and error reports. This telemetry does not collect code, prompts or personal information. See our <privacyLink>privacy policy</privacyLink> for more details."
 		},
 		"settings": {
 			"import": "Import",

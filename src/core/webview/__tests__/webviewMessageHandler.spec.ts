@@ -829,6 +829,36 @@ describe("webviewMessageHandler - mcpEnabled", () => {
 	})
 })
 
+describe("webviewMessageHandler - secondary development secrets", () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	it("preserves an existing client secret when an empty value is submitted", async () => {
+		vi.mocked(mockClineProvider.contextProxy.getValue).mockReturnValue("persisted-secret")
+
+		await webviewMessageHandler(mockClineProvider, {
+			type: "updateSettings",
+			updatedSettings: { secondaryDevClientSecret: "" },
+		})
+
+		expect(mockClineProvider.contextProxy.setValue).not.toHaveBeenCalledWith("secondaryDevClientSecret", "")
+		expect(mockClineProvider.postStateToWebview).toHaveBeenCalledTimes(1)
+	})
+
+	it("stores a new non-empty client secret", async () => {
+		vi.mocked(mockClineProvider.contextProxy.getValue).mockReturnValue("persisted-secret")
+
+		await webviewMessageHandler(mockClineProvider, {
+			type: "updateSettings",
+			updatedSettings: { secondaryDevClientSecret: " new-secret " },
+		})
+
+		expect(mockClineProvider.contextProxy.setValue).toHaveBeenCalledWith("secondaryDevClientSecret", "new-secret")
+		expect(mockClineProvider.postStateToWebview).toHaveBeenCalledTimes(1)
+	})
+})
+
 describe("webviewMessageHandler - requestCommands", () => {
 	beforeEach(() => {
 		vi.clearAllMocks()

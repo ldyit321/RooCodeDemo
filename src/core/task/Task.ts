@@ -106,6 +106,7 @@ import { type AssistantMessageContent, presentAssistantMessage } from "../assist
 import { NativeToolCallParser } from "../assistant-message/NativeToolCallParser"
 import { manageContext, willManageContext } from "../context-management"
 import { ClineProvider } from "../webview/ClineProvider"
+import { augmentInstructionsWithSecondaryDevContext } from "../webview/secondaryDevPromptContext"
 import { MultiSearchReplaceDiffStrategy } from "../diff/strategies/multi-search-replace"
 import {
 	type ApiMessage,
@@ -3777,7 +3778,31 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 			language,
 			apiConfiguration,
 			enableSubfolderRules,
+			secondaryDevBaseUrl,
+			secondaryDevOAuthEnabled,
+			secondaryDevClientId,
+			secondaryDevClientSecret,
+			secondaryDevAuthorizePath,
+			secondaryDevAuthorizationUrl,
+			secondaryDevFrontendRedirectUrl,
+			secondaryDevTokenPath,
+			secondaryDevTokenUrl,
+			secondaryDevScope,
 		} = state ?? {}
+		const effectiveCustomInstructions = augmentInstructionsWithSecondaryDevContext({
+			mode,
+			customInstructions,
+			secondaryDevBaseUrl,
+			secondaryDevOAuthEnabled,
+			secondaryDevClientId,
+			secondaryDevClientSecret,
+			secondaryDevAuthorizePath,
+			secondaryDevAuthorizationUrl,
+			secondaryDevFrontendRedirectUrl,
+			secondaryDevTokenPath,
+			secondaryDevTokenUrl,
+			secondaryDevScope,
+		})
 
 		return await (async () => {
 			const provider = this.providerRef.deref()
@@ -3797,7 +3822,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				mode ?? defaultModeSlug,
 				customModePrompts,
 				customModes,
-				customInstructions,
+				effectiveCustomInstructions,
 				experiments,
 				language,
 				rooIgnoreInstructions,

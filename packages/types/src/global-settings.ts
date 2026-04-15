@@ -95,6 +95,17 @@ export const globalSettingsSchema = z.object({
 
 	customCondensingPrompt: z.string().optional(),
 
+	secondaryDevBaseUrl: z.string().optional(),
+	secondaryDevOAuthEnabled: z.boolean().optional(),
+	secondaryDevClientId: z.string().optional(),
+	secondaryDevClientSecret: z.string().optional(),
+	secondaryDevAuthorizePath: z.string().optional(),
+	secondaryDevAuthorizationUrl: z.string().optional(),
+	secondaryDevFrontendRedirectUrl: z.string().optional(),
+	secondaryDevTokenPath: z.string().optional(),
+	secondaryDevTokenUrl: z.string().optional(),
+	secondaryDevScope: z.string().optional(),
+
 	autoApprovalEnabled: z.boolean().optional(),
 	alwaysAllowReadOnly: z.boolean().optional(),
 	alwaysAllowReadOnlyOutsideWorkspace: z.boolean().optional(),
@@ -285,6 +296,7 @@ export const SECRET_STATE_KEYS = [
 // Global secrets that are part of GlobalSettings (not ProviderSettings)
 export const GLOBAL_SECRET_KEYS = [
 	"openRouterImageApiKey", // For image generation
+	"secondaryDevClientSecret",
 ] as const
 
 // Type for the actual secret storage keys
@@ -375,7 +387,7 @@ export const EVALS_SETTINGS: RooCodeSettings = {
 
 	mcpEnabled: false,
 
-	mode: "code", // "architect",
+	mode: "huayun-secondary-dev",
 
 	customModes: [],
 }

@@ -769,6 +769,62 @@ describe("ClineProvider", () => {
 		expect(state).toHaveProperty("writeDelayMs")
 	})
 
+	test("getState returns saved secondary dev settings", async () => {
+		await provider.contextProxy.setValues({
+			secondaryDevBaseUrl: "https://cad.example.com",
+			secondaryDevOAuthEnabled: true,
+			secondaryDevClientId: "client-id",
+			secondaryDevClientSecret: "client-secret",
+			secondaryDevAuthorizePath: "oauth/authorize",
+			secondaryDevAuthorizationUrl: "https://cad.example.com/oauth/authorize",
+			secondaryDevFrontendRedirectUrl: "http://localhost:8080/token",
+			secondaryDevTokenPath: "oauth/token",
+			secondaryDevTokenUrl: "https://cad.example.com/oauth/token",
+			secondaryDevScope: "document:read",
+		})
+
+		const state = await provider.getState()
+
+		expect(state.secondaryDevBaseUrl).toBe("https://cad.example.com")
+		expect(state.secondaryDevOAuthEnabled).toBe(true)
+		expect(state.secondaryDevClientId).toBe("client-id")
+		expect(state.secondaryDevClientSecret).toBe("client-secret")
+		expect(state.secondaryDevAuthorizePath).toBe("oauth/authorize")
+		expect(state.secondaryDevAuthorizationUrl).toBe("https://cad.example.com/oauth/authorize")
+		expect(state.secondaryDevFrontendRedirectUrl).toBe("http://localhost:8080/token")
+		expect(state.secondaryDevTokenPath).toBe("oauth/token")
+		expect(state.secondaryDevTokenUrl).toBe("https://cad.example.com/oauth/token")
+		expect(state.secondaryDevScope).toBe("document:read")
+	})
+
+	test("getStateToPostToWebview includes secondary dev settings", async () => {
+		await provider.contextProxy.setValues({
+			secondaryDevBaseUrl: "https://cad.example.com",
+			secondaryDevOAuthEnabled: true,
+			secondaryDevClientId: "client-id",
+			secondaryDevClientSecret: "client-secret",
+			secondaryDevAuthorizePath: "oauth/authorize",
+			secondaryDevAuthorizationUrl: "https://cad.example.com/oauth/authorize",
+			secondaryDevFrontendRedirectUrl: "http://localhost:8080/token",
+			secondaryDevTokenPath: "oauth/token",
+			secondaryDevTokenUrl: "https://cad.example.com/oauth/token",
+			secondaryDevScope: "document:read",
+		})
+
+		const state = await provider.getStateToPostToWebview()
+
+		expect(state.secondaryDevBaseUrl).toBe("https://cad.example.com")
+		expect(state.secondaryDevOAuthEnabled).toBe(true)
+		expect(state.secondaryDevClientId).toBe("client-id")
+		expect(state.secondaryDevClientSecret).toBe("client-secret")
+		expect(state.secondaryDevAuthorizePath).toBe("oauth/authorize")
+		expect(state.secondaryDevAuthorizationUrl).toBe("https://cad.example.com/oauth/authorize")
+		expect(state.secondaryDevFrontendRedirectUrl).toBe("http://localhost:8080/token")
+		expect(state.secondaryDevTokenPath).toBe("oauth/token")
+		expect(state.secondaryDevTokenUrl).toBe("https://cad.example.com/oauth/token")
+		expect(state.secondaryDevScope).toBe("document:read")
+	})
+
 	test("language is set to VSCode language", async () => {
 		// Mock VSCode language as Spanish
 		;(vscode.env as any).language = "pt-BR"

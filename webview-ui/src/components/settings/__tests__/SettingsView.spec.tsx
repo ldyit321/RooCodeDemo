@@ -1,6 +1,6 @@
 // pnpm --filter @roo-code/vscode-webview test src/components/settings/__tests__/SettingsView.spec.tsx
 
-import { render, screen, fireEvent, within } from "@/utils/test-utils"
+import { act, render, screen, fireEvent, within } from "@/utils/test-utils"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import { vscode } from "@/utils/vscode"
@@ -164,8 +164,13 @@ vi.mock("@/components/ui", () => ({
 			data-testid={dataTestId}
 		/>
 	),
-	Button: ({ children, onClick, variant, className, "data-testid": dataTestId }: any) => (
-		<button onClick={onClick} data-variant={variant} className={className} data-testid={dataTestId}>
+	Button: ({ children, onClick, variant, className, disabled, "data-testid": dataTestId }: any) => (
+		<button
+			onClick={onClick}
+			data-variant={variant}
+			className={className}
+			data-testid={dataTestId}
+			disabled={disabled}>
 			{children}
 		</button>
 	),
@@ -264,30 +269,32 @@ vi.mock("@/components/ui", () => ({
 	),
 }))
 
-// Mock window.postMessage to trigger state hydration
+// Dispatch the extension message synchronously so tests don't depend on
+// window.postMessage timing.
 const mockPostMessage = (state: any) => {
-	window.postMessage(
-		{
-			type: "state",
-			state: {
-				version: "1.0.0",
-				clineMessages: [],
-				taskHistory: [],
-				shouldShowAnnouncement: false,
-				allowedCommands: [],
-				alwaysAllowExecute: false,
-				ttsEnabled: false,
-				ttsSpeed: 1,
-				soundEnabled: false,
-				soundVolume: 0.5,
-				...state,
+	window.dispatchEvent(
+		new MessageEvent("message", {
+			data: {
+				type: "state",
+				state: {
+					version: "1.0.0",
+					clineMessages: [],
+					taskHistory: [],
+					shouldShowAnnouncement: false,
+					allowedCommands: [],
+					alwaysAllowExecute: false,
+					ttsEnabled: false,
+					ttsSpeed: 1,
+					soundEnabled: false,
+					soundVolume: 0.5,
+					...state,
+				},
 			},
-		},
-		"*",
+		}),
 	)
 }
 
-const renderSettingsView = () => {
+const renderSettingsView = (initialState: Record<string, unknown> = {}) => {
 	const onDone = vi.fn()
 	const queryClient = new QueryClient()
 
@@ -300,7 +307,7 @@ const renderSettingsView = () => {
 	)
 
 	// Hydrate initial state.
-	mockPostMessage({})
+	mockPostMessage(initialState)
 
 	// Helper function to activate a tab and ensure its content is visible
 	const activateTab = (tabId: string) => {
@@ -520,6 +527,125 @@ describe("SettingsView - API Configuration", () => {
 		renderSettingsView()
 
 		expect(screen.getByTestId("api-config-management")).toBeInTheDocument()
+	})
+})
+
+describe("SettingsView - Secondary Dev Settings", () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	it("saves secondary development configuration", () => {
+		const { activateTab, getSettingsContent } = renderSettingsView()
+
+		activateTab("secondaryDev")
+
+		const content = getSettingsContent()
+
+		fireEvent.change(within(content).getByTestId("secondary-dev-base-url-input"), {
+			target: { value: "https://cad.crowncad.com" },
+		})
+		fireEvent.change(within(content).getByTestId("secondary-dev-client-id-input"), {
+			target: { value: "crowncad-client" },
+		})
+		fireEvent.change(within(content).getByTestId("secondary-dev-client-secret-input"), {
+			target: { value: "super-secret" },
+		})
+		fireEvent.change(within(content).getByTestId("secondary-dev-frontend-redirect-url-input"), {
+			target: { value: "http://localhost:8080/token" },
+		})
+		fireEvent.change(within(content).getByTestId("secondary-dev-authorize-path-input"), {
+			target: { value: "oauth/authorize" },
+		})
+		expect(within(content).getByTestId("secondary-dev-authorization-url-preview")).toHaveValue(
+			"https://cad.crowncad.com/oauth/authorize",
+		)
+		fireEvent.change(within(content).getByTestId("secondary-dev-token-path-input"), {
+			target: { value: "oauth/token" },
+		})
+		expect(within(content).getByTestId("secondary-dev-token-url-preview")).toHaveValue(
+			"https://cad.crowncad.com/oauth/token",
+		)
+		fireEvent.change(within(content).getByTestId("secondary-dev-scope-input"), {
+			target: { value: "openid profile crowncad:document" },
+		})
+
+		fireEvent.click(screen.getByTestId("save-button"))
+
+		expect(vscode.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: "updateSettings",
+				updatedSettings: expect.objectContaining({
+					secondaryDevBaseUrl: "https://cad.crowncad.com",
+					secondaryDevOAuthEnabled: true,
+					secondaryDevClientId: "crowncad-client",
+					secondaryDevClientSecret: "super-secret",
+					secondaryDevFrontendRedirectUrl: "http://localhost:8080/token",
+					secondaryDevAuthorizePath: "oauth/authorize",
+					secondaryDevAuthorizationUrl: "https://cad.crowncad.com/oauth/authorize",
+					secondaryDevTokenPath: "oauth/token",
+					secondaryDevTokenUrl: "https://cad.crowncad.com/oauth/token",
+					secondaryDevScope: "openid profile crowncad:document",
+				}),
+			}),
+		)
+	})
+
+	it("blocks save when required oauth credentials are missing", () => {
+		const { activateTab, getSettingsContent } = renderSettingsView()
+
+		activateTab("secondaryDev")
+
+		const content = getSettingsContent()
+
+		fireEvent.change(within(content).getByTestId("secondary-dev-base-url-input"), {
+			target: { value: "https://cad.crowncad.com" },
+		})
+
+		expect(within(content).getByTestId("secondary-dev-validation-error")).toBeInTheDocument()
+		expect(screen.getByTestId("save-button")).toBeDisabled()
+	})
+
+	it("preserves saved secondary development secret when saving from another settings tab", async () => {
+		const { activateTab } = renderSettingsView()
+
+		await act(async () => {
+			mockPostMessage({
+				secondaryDevBaseUrl: "https://cad.crowncad.com",
+				secondaryDevOAuthEnabled: true,
+				secondaryDevClientId: "crowncad-client",
+				secondaryDevClientSecret: "persisted-secret",
+				secondaryDevFrontendRedirectUrl: "http://localhost:8080/token",
+				secondaryDevAuthorizePath: "oauth/authorize",
+				secondaryDevAuthorizationUrl: "https://cad.crowncad.com/oauth/authorize",
+				secondaryDevTokenPath: "oauth/token",
+				secondaryDevTokenUrl: "https://cad.crowncad.com/oauth/token",
+				secondaryDevScope: "openid profile crowncad:document",
+			})
+		})
+
+		activateTab("notifications")
+		const content = screen.getByTestId("settings-content")
+		fireEvent.click(within(content).getByTestId("tts-enabled-checkbox"))
+		fireEvent.click(screen.getByTestId("save-button"))
+
+		expect(vscode.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: "updateSettings",
+				updatedSettings: expect.objectContaining({
+					ttsEnabled: true,
+					secondaryDevBaseUrl: "https://cad.crowncad.com",
+					secondaryDevClientId: "crowncad-client",
+					secondaryDevClientSecret: "persisted-secret",
+					secondaryDevFrontendRedirectUrl: "http://localhost:8080/token",
+					secondaryDevAuthorizePath: "oauth/authorize",
+					secondaryDevAuthorizationUrl: "https://cad.crowncad.com/oauth/authorize",
+					secondaryDevTokenPath: "oauth/token",
+					secondaryDevTokenUrl: "https://cad.crowncad.com/oauth/token",
+					secondaryDevScope: "openid profile crowncad:document",
+				}),
+			}),
+		)
 	})
 })
 

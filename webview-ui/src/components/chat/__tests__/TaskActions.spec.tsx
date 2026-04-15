@@ -90,6 +90,7 @@ describe("TaskActions", () => {
 			sharingEnabled: true,
 			publicSharingEnabled: true,
 			cloudIsAuthenticated: true,
+			mode: "code",
 			cloudUserInfo: {
 				organizationName: "Test Organization",
 			},
@@ -347,6 +348,54 @@ describe("TaskActions", () => {
 
 			expect(mockPostMessage).toHaveBeenCalledWith({
 				type: "exportCurrentTask",
+			})
+		})
+
+		it("shows run and package buttons in huayun secondary dev mode", () => {
+			mockUseExtensionState.mockReturnValue({
+				sharingEnabled: true,
+				publicSharingEnabled: true,
+				cloudIsAuthenticated: true,
+				mode: "huayun-secondary-dev",
+				cloudUserInfo: {
+					organizationName: "Test Organization",
+				},
+			} as any)
+
+			render(<TaskActions item={mockItem} buttonsDisabled={false} />)
+
+			expect(screen.getByLabelText("Run secondary dev workspace")).toBeInTheDocument()
+			expect(screen.getByLabelText("Package secondary dev workspace")).toBeInTheDocument()
+		})
+
+		it("does not show run and package buttons outside huayun secondary dev mode", () => {
+			render(<TaskActions item={mockItem} buttonsDisabled={false} />)
+
+			expect(screen.queryByLabelText("Run secondary dev workspace")).not.toBeInTheDocument()
+			expect(screen.queryByLabelText("Package secondary dev workspace")).not.toBeInTheDocument()
+		})
+
+		it("sends secondary dev action messages when run and package buttons are clicked", () => {
+			mockUseExtensionState.mockReturnValue({
+				sharingEnabled: true,
+				publicSharingEnabled: true,
+				cloudIsAuthenticated: true,
+				mode: "huayun-secondary-dev",
+				cloudUserInfo: {
+					organizationName: "Test Organization",
+				},
+			} as any)
+
+			render(<TaskActions item={mockItem} buttonsDisabled={false} />)
+
+			fireEvent.click(screen.getByLabelText("Run secondary dev workspace"))
+			fireEvent.click(screen.getByLabelText("Package secondary dev workspace"))
+
+			expect(mockPostMessage).toHaveBeenCalledWith({
+				type: "runSecondaryDevWorkspace",
+			})
+			expect(mockPostMessage).toHaveBeenCalledWith({
+				type: "packageSecondaryDevWorkspace",
 			})
 		})
 

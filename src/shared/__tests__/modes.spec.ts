@@ -9,7 +9,14 @@ vi.mock("../../core/prompts/sections/custom-instructions", () => ({
 	addCustomInstructions: vi.fn().mockResolvedValue("Combined instructions"),
 }))
 
-import { FileRestrictionError, getFullModeDetails, modes, getModeSelection } from "../modes"
+import {
+	FileRestrictionError,
+	defaultModeSlug,
+	getFullModeDetails,
+	getModeBySlug,
+	modes,
+	getModeSelection,
+} from "../modes"
 import { isToolAllowedForMode } from "../../core/tools/validateToolUse"
 import { addCustomInstructions } from "../../core/prompts/sections/custom-instructions"
 
@@ -621,6 +628,45 @@ describe("FileRestrictionError", () => {
 		})
 	})
 
+	describe("huayun secondary dev mode", () => {
+		it("is configured correctly", () => {
+			const huayunMode = modes.find((mode) => mode.slug === "huayun-secondary-dev")
+			expect(huayunMode).toBeDefined()
+			expect(huayunMode).toMatchObject({
+				slug: "huayun-secondary-dev",
+				name: "HUAYUN Secondary Dev",
+				groups: ["read", "edit", "command", "mcp"],
+			})
+			expect(huayunMode?.customInstructions).toContain("OAuth2 authentication is a mandatory first phase")
+			expect(huayunMode?.customInstructions).toContain("Follow a stable layered architecture")
+			expect(huayunMode?.customInstructions).toContain(
+				"Frontend may use either plain JavaScript plus HTML/CSS or Vue",
+			)
+			expect(huayunMode?.customInstructions).toContain(
+				"Backend services, scripts, and server-side integrations must use Python",
+			)
+			expect(huayunMode?.customInstructions).toContain("start from the standard HUAYUN scaffold template")
+			expect(huayunMode?.customInstructions).toContain("applicationId")
+			expect(huayunMode?.customInstructions).toContain("redirectUrl")
+			expect(huayunMode?.customInstructions).toContain("client_id")
+			expect(huayunMode?.customInstructions).toContain("code` and `scope`")
+			expect(huayunMode?.customInstructions).toContain("state")
+			expect(huayunMode?.customInstructions).toContain("application/x-www-form-urlencoded")
+			expect(huayunMode?.customInstructions).toContain("client_secret")
+			expect(huayunMode?.customInstructions).toContain("client_scope")
+			expect(huayunMode?.customInstructions).toContain("Map callback `scope`")
+			expect(huayunMode?.customInstructions).toContain("do not ask the user to paste it in chat")
+			expect(huayunMode?.customInstructions).toContain("HUAYUN_CLIENT_SECRET")
+			expect(huayunMode?.customInstructions).toContain("Never hardcode, print, log, or expose")
+			expect(huayunMode?.customInstructions).toContain("explicitly report the missing capability")
+			expect(huayunMode?.customInstructions).toContain("Do not create fake upstream paths")
+			expect(huayunMode?.customInstructions).toContain("Treat standard system Folder APIs as known")
+			expect(huayunMode?.customInstructions).toContain("`DELETE /api/folder/{folderId}`")
+			expect(huayunMode?.customInstructions).toContain("Do not report system Folder query")
+			expect(huayunMode?.customInstructions).toContain("document-type `FolderDocument`")
+		})
+	})
+
 	describe("getFullModeDetails", () => {
 		beforeEach(() => {
 			vi.clearAllMocks()
@@ -687,11 +733,11 @@ describe("FileRestrictionError", () => {
 			)
 		})
 
-		it("falls back to first mode for non-existent mode", async () => {
+		it("falls back to default mode for non-existent mode", async () => {
 			const result = await getFullModeDetails("non-existent")
+			const defaultMode = getModeBySlug(defaultModeSlug)!
 			expect(result).toMatchObject({
-				...modes[0],
-				// The first mode (architect) has its own customInstructions
+				...defaultMode,
 			})
 		})
 	})
@@ -716,6 +762,12 @@ describe("FileRestrictionError", () => {
 			"Tool 'apply_diff' in mode 'Markdown Editor' can only edit files matching pattern: \\.md$ (Markdown files only). Got: test.js",
 		)
 		expect(error.name).toBe("FileRestrictionError")
+	})
+})
+
+describe("defaultModeSlug", () => {
+	test("defaults to HUAYUN secondary development mode", () => {
+		expect(defaultModeSlug).toBe("huayun-secondary-dev")
 	})
 })
 
@@ -794,7 +846,7 @@ describe("getModeSelection", () => {
 
 	test("should fall back to default mode if slug does not exist in custom, prompt, or built-in modes", () => {
 		const selection = getModeSelection("non-existent-mode", undefined, customModesList)
-		const defaultMode = modes[0] // First mode is the default
+		const defaultMode = getModeBySlug(defaultModeSlug)!
 		expect(selection.roleDefinition).toBe(defaultMode.roleDefinition)
 		expect(selection.baseInstructions).toBe(defaultMode.customInstructions || "")
 	})

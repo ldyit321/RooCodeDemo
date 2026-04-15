@@ -2,6 +2,8 @@ import { safeWriteJson } from "../../utils/safeWriteJson"
 import * as path from "path"
 import * as os from "os"
 import * as fs from "fs/promises"
+import { exec as execCallback, execFile as execFileCallback } from "child_process"
+import { promisify } from "util"
 import { getRooDirectoriesForCwd } from "../../services/roo-config/index.js"
 import pWaitFor from "p-wait-for"
 import * as vscode from "vscode"
@@ -71,8 +73,19 @@ import { GetModelsOptions } from "../../shared/api"
 import { generateSystemPrompt } from "./generateSystemPrompt"
 import { resolveDefaultSaveUri, saveLastExportPath } from "../../utils/export"
 import { getCommand } from "../../utils/commands"
+import {
+	HUAYUN_SECONDARY_DEV_MODE_SLUG,
+	createSecondaryDevBuildSteps,
+	createSecondaryDevRunSteps,
+	discoverSecondaryDevWorkspace,
+	resolveSecondaryDevPackagingEntries,
+} from "./secondaryDevWorkflow"
 
 const ALLOWED_VSCODE_SETTINGS = new Set(["terminal.integrated.inheritEnv"])
+const FRONTEND_PREVIEW_PORT_CANDIDATES = [5173, 3000, 4173, 8080, 8000, 4200, 4321]
+const FRONTEND_PREVIEW_DIRECTORY_CANDIDATES = ["", "frontend", "client", "web", "app", "apps/web"]
+const execAsync = promisify(execCallback)
+const execFileAsync = promisify(execFileCallback)
 
 import { MarketplaceManager, MarketplaceItemType } from "../../services/marketplace"
 import { setPendingTodoList } from "../tools/UpdateTodoListTool"
@@ -101,6 +114,37 @@ export const webviewMessageHandler = async (
 
 	const getCurrentCwd = () => {
 		return provider.getCurrentTask()?.cwd || provider.cwd
+	}
+
+	const detectRunningFrontendPreviewUrl = async (): Promise<string | undefined> => {
+		for (const port of FRONTEND_PREVIEW_PORT_CANDIDATES) {
+			const url = `http://127.0.0.1:${port}`
+			try {
+				const response = await fetch(url, {
+					method: "GET",
+					signal: AbortSignal.timeout(500),
+				})
+				if (response.ok) {
+					return url
+				}
+			} catch {
+				// Ignore closed ports and timeouts.
+			}
+		}
+
+		return undefined
+	}
+
+	const findFrontendHtmlEntry = async (cwd: string): Promise<string | undefined> => {
+		for (const dir of FRONTEND_PREVIEW_DIRECTORY_CANDIDATES) {
+			const candidateDir = dir ? path.join(cwd, dir) : cwd
+			const indexHtml = path.join(candidateDir, "index.html")
+			if (await fileExistsAtPath(indexHtml)) {
+				return indexHtml
+			}
+		}
+
+		return undefined
 	}
 
 	const getCurrentMode = async (): Promise<string> => {
@@ -167,6 +211,69 @@ export const webviewMessageHandler = async (
 		}
 
 		return commandList
+	}
+
+	const openFrontendPreviewForCwd = async (cwd: string): Promise<boolean> => {
+		const previewUrl = await detectRunningFrontendPreviewUrl()
+		if (previewUrl) {
+			await vscode.env.openExternal(vscode.Uri.parse(previewUrl))
+			return true
+		}
+
+		const htmlEntry = await findFrontendHtmlEntry(cwd)
+		if (htmlEntry) {
+			const fileUri = vscode.Uri.file(htmlEntry)
+			try {
+				await vscode.commands.executeCommand("simpleBrowser.show", fileUri.toString())
+			} catch {
+				await vscode.env.openExternal(fileUri)
+			}
+			return true
+		}
+
+		return false
+	}
+
+	const runShellCommand = async (command: string, cwd: string) => {
+		return execAsync(command, {
+			cwd,
+			maxBuffer: 10 * 1024 * 1024,
+		})
+	}
+
+	const createSecondaryDevArchive = async (sourceDir: string, archivePath: string) => {
+		if (process.platform === "win32") {
+			const escapedSourceDir = sourceDir.replace(/'/g, "''")
+			const escapedArchivePath = archivePath.replace(/'/g, "''")
+			await execFileAsync("powershell.exe", [
+				"-NoProfile",
+				"-Command",
+				`Compress-Archive -LiteralPath '${escapedSourceDir}' -DestinationPath '${escapedArchivePath}' -Force`,
+			])
+			return
+		}
+
+		await execFileAsync("tar", ["-czf", archivePath, "-C", path.dirname(sourceDir), path.basename(sourceDir)])
+	}
+
+	const ensureHuayunSecondaryDevMode = async () => {
+		const currentMode = await getCurrentMode()
+		if (currentMode !== HUAYUN_SECONDARY_DEV_MODE_SLUG) {
+			vscode.window.showWarningMessage(
+				"These actions are only available when HUAYUN Secondary Dev mode is active.",
+			)
+			return false
+		}
+
+		return true
+	}
+
+	const formatCommandFailure = (error: unknown) => {
+		if (error instanceof Error) {
+			return error.message
+		}
+
+		return String(error)
 	}
 
 	/**
@@ -740,6 +847,15 @@ export const webviewMessageHandler = async (
 						if (!value) {
 							continue
 						}
+					} else if (key === "secondaryDevClientSecret") {
+						const nextSecret = typeof value === "string" ? value.trim() : ""
+						const existingSecret = provider.contextProxy.getValue("secondaryDevClientSecret")
+
+						if (!nextSecret && typeof existingSecret === "string" && existingSecret.trim().length > 0) {
+							continue
+						}
+
+						newValue = nextSecret
 					}
 
 					await provider.contextProxy.setValue(key as keyof RooCodeSettings, newValue)
@@ -1272,6 +1388,143 @@ export const webviewMessageHandler = async (
 				vscode.env.openExternal(vscode.Uri.parse(message.url))
 			}
 			break
+		case "openFrontendPreview": {
+			const cwd = getCurrentCwd()
+
+			if (!cwd) {
+				vscode.window.showErrorMessage("No workspace path available for frontend preview.")
+				break
+			}
+
+			if (!(await openFrontendPreviewForCwd(cwd))) {
+				vscode.window.showInformationMessage(
+					"No running frontend preview was detected. Start a dev server or add an index.html file to your frontend entry directory.",
+				)
+			}
+			break
+		}
+		case "runSecondaryDevWorkspace": {
+			if (!(await ensureHuayunSecondaryDevMode())) {
+				break
+			}
+
+			const cwd = getCurrentCwd()
+			if (!cwd) {
+				vscode.window.showErrorMessage("No workspace path available for secondary development run.")
+				break
+			}
+
+			const targets = await discoverSecondaryDevWorkspace(cwd)
+			const runSteps = createSecondaryDevRunSteps(targets)
+
+			for (const step of runSteps) {
+				const terminal = vscode.window.createTerminal({
+					cwd: step.cwd,
+					name: `HUAYUN ${step.label === "frontend" ? "Frontend" : "Backend"}`,
+				})
+				terminal.show(true)
+				terminal.sendText(step.command, true)
+			}
+
+			if (runSteps.some((step) => step.label === "frontend")) {
+				setTimeout(() => {
+					void openFrontendPreviewForCwd(cwd)
+				}, 1500)
+			} else if (runSteps.length === 0) {
+				const opened = await openFrontendPreviewForCwd(cwd)
+				if (!opened) {
+					vscode.window.showWarningMessage(
+						"No runnable frontend or backend entry was detected. Add a frontend package.json or backend Python entrypoint first.",
+					)
+					break
+				}
+			}
+
+			if (runSteps.length > 0) {
+				vscode.window.showInformationMessage(
+					`Started secondary development run tasks: ${runSteps.map((step) => `${step.label} -> ${step.command}`).join(" | ")}`,
+				)
+			}
+			break
+		}
+		case "packageSecondaryDevWorkspace": {
+			if (!(await ensureHuayunSecondaryDevMode())) {
+				break
+			}
+
+			const cwd = getCurrentCwd()
+			if (!cwd) {
+				vscode.window.showErrorMessage("No workspace path available for secondary development packaging.")
+				break
+			}
+
+			const targets = await discoverSecondaryDevWorkspace(cwd)
+			const buildSteps = createSecondaryDevBuildSteps(targets)
+
+			try {
+				for (const step of buildSteps) {
+					await runShellCommand(step.command, step.cwd)
+				}
+			} catch (error) {
+				vscode.window.showErrorMessage(`Secondary development build failed: ${formatCommandFailure(error)}`)
+				break
+			}
+
+			const packagingEntries = await resolveSecondaryDevPackagingEntries(targets)
+			if (packagingEntries.length === 0) {
+				vscode.window.showWarningMessage(
+					"No frontend or backend package sources were detected. Create your secondary development project structure first.",
+				)
+				break
+			}
+
+			const packageRoot = path.join(cwd, ".huayun-packages")
+			const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+			const packageName = `huayun-secondary-dev-${timestamp}`
+			const stagingDir = path.join(packageRoot, packageName)
+			await fs.mkdir(stagingDir, { recursive: true })
+
+			for (const entry of packagingEntries) {
+				await fs.cp(entry.source, path.join(stagingDir, entry.destination), {
+					recursive: true,
+					force: true,
+				})
+			}
+
+			const manifestPath = path.join(stagingDir, "manifest.json")
+			await safeWriteJson(manifestPath, {
+				createdAt: new Date().toISOString(),
+				workspaceRoot: cwd,
+				buildSteps,
+				entries: packagingEntries.map((entry) => ({
+					source: path.relative(cwd, entry.source),
+					destination: entry.destination,
+				})),
+			})
+
+			let archivePath: string | undefined
+			try {
+				archivePath = path.join(
+					packageRoot,
+					process.platform === "win32" ? `${packageName}.zip` : `${packageName}.tar.gz`,
+				)
+				await createSecondaryDevArchive(stagingDir, archivePath)
+			} catch (error) {
+				provider.log(`Secondary development archive creation failed: ${formatCommandFailure(error)}`)
+			}
+
+			const targetPath = archivePath ?? stagingDir
+			const choice = await vscode.window.showInformationMessage(
+				archivePath
+					? `Secondary development package created at ${archivePath}`
+					: `Secondary development package folder created at ${stagingDir}`,
+				"Reveal in Explorer",
+			)
+			if (choice) {
+				await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(targetPath))
+			}
+			break
+		}
 		case "checkpointDiff":
 			const result = checkoutDiffPayloadSchema.safeParse(message.payload)
 

@@ -12,6 +12,12 @@ import { ClineAskResponse } from "../../shared/WebviewMessage"
 import { isWriteToolAction, isReadOnlyToolAction } from "./tools"
 import { isMcpToolAlwaysAllowed } from "./mcp"
 import { getCommandDecision } from "./commands"
+import {
+	HUAYUN_SECONDARY_DEV_ALLOWED_COMMAND_PREFIXES,
+	HUAYUN_SECONDARY_DEV_DENIED_COMMAND_PREFIXES,
+	isHuayunSecondaryDevMode,
+	mergeUniqueCommandPrefixes,
+} from "./huayunSecondaryDev"
 
 // We have auto-approval actions for different categories.
 export type AutoApprovalState =
@@ -33,6 +39,7 @@ export type AutoApprovalStateOptions =
 	| "mcpServers" // For `alwaysAllowMcp`.
 	| "allowedCommands" // For `alwaysAllowExecute`.
 	| "deniedCommands"
+	| "mode"
 
 export type CheckAutoApprovalResult =
 	| { decision: "approve" }
@@ -57,6 +64,37 @@ export async function checkAutoApproval({
 }): Promise<CheckAutoApprovalResult> {
 	if (isNonBlockingAsk(ask)) {
 		return { decision: "approve" }
+	}
+
+	if (ask === "command") {
+		if (!text) {
+			return { decision: "ask" }
+		}
+
+		const isHuayunMode = isHuayunSecondaryDevMode(state?.mode)
+		const hasGlobalExecuteAutoApproval = state?.autoApprovalEnabled === true && state?.alwaysAllowExecute === true
+
+		if (hasGlobalExecuteAutoApproval || isHuayunMode) {
+			const allowedCommands = hasGlobalExecuteAutoApproval
+				? mergeUniqueCommandPrefixes(
+						state?.allowedCommands || [],
+						isHuayunMode ? HUAYUN_SECONDARY_DEV_ALLOWED_COMMAND_PREFIXES : [],
+					)
+				: HUAYUN_SECONDARY_DEV_ALLOWED_COMMAND_PREFIXES
+
+			const deniedCommands = mergeUniqueCommandPrefixes(
+				state?.deniedCommands || [],
+				isHuayunMode ? HUAYUN_SECONDARY_DEV_DENIED_COMMAND_PREFIXES : [],
+			)
+
+			const decision = getCommandDecision(text, allowedCommands, deniedCommands)
+
+			if (decision === "auto_approve") {
+				return { decision: "approve" }
+			} else if (decision === "auto_deny") {
+				return { decision: "deny" }
+			}
+		}
 	}
 
 	if (!state || !state.autoApprovalEnabled) {
@@ -109,24 +147,6 @@ export async function checkAutoApproval({
 		}
 
 		return { decision: "ask" }
-	}
-
-	if (ask === "command") {
-		if (!text) {
-			return { decision: "ask" }
-		}
-
-		if (state.alwaysAllowExecute === true) {
-			const decision = getCommandDecision(text, state.allowedCommands || [], state.deniedCommands || [])
-
-			if (decision === "auto_approve") {
-				return { decision: "approve" }
-			} else if (decision === "auto_deny") {
-				return { decision: "deny" }
-			} else {
-				return { decision: "ask" }
-			}
-		}
 	}
 
 	if (ask === "tool") {
