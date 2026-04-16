@@ -1,322 +1,436 @@
 # HUAYUN Secondary Dev 回归测试用例
 
-本文档用于验证 `HUAYUN Secondary Dev` 针对近期问题的修正是否已经生效。
+本文档用于验证 `HUAYUN Secondary Dev` 是否按当前约定线路工作：
 
-本轮不追求“大而全”，只验证最关键的 6 个问题：
+`Mode -> Runtime Settings -> Workspace Rules -> Module Rule -> Thin Skill / AGENTS -> API Understanding -> Implementation / Tool Actions`
 
-1. 场景 1 是否只做设计，不乱写完整业务代码
-2. 场景 2 是否只做代码落地，不自动启动长时间运行命令
-3. 场景 2 是否会延续场景 1 的架构，而不是重新设计
-4. 是否会严格受限于当前已提供 API，而不是脑补接口
-5. Run 是否只在运行场景使用
-6. Package 是否只在打包场景使用
+这套回归不追求“大而全”，而是优先验证最容易回退、最影响稳定性的关键点。
+
+## 使用前提
+
+- 每条测试都建议在`全新任务`中执行
+- 当前 mode 必须为 `huayun-secondary-dev`
+- 如果刚改完 rules / mode / prompt 相关内容，先 `Reload Window`
+- 每条先看“是否正确理解规则和接口”，再看“是否生成代码”
+
+## 判定总原则
+
+优先观察以下几点：
+
+- 是否先按当前项目规则材料做判断
+- 是否把 `thin skill` 只当导航层
+- 是否把 `AGENTS.md` 只当仓库级补充
+- 是否正确命中已知 API
+- 是否在缺失能力时停止并说明，而不是发明接口
+- 是否把规则结论和业务代码实现状态区分开
+
+常见失败信号：
+
+- 先搜业务代码，再倒推 API 是否存在
+- 因为没找到 wrapper / route / service 就说接口不存在
+- 把 skill 或 AGENTS 当成主要 API 真相源
+- 不区分同一路径不同 HTTP method 的语义
+- 输出 `missing API`、`501`、`not implemented`，但实际上规则里已定义该能力
 
 ---
 
-## 一、使用方式
+## 回归测试 A：线路入口验证
 
-建议按顺序逐条新开任务测试。
+### 目标
 
-每条测试都记录：
+验证模型是否理解当前 HUAYUN 二开的约束优先级。
 
-- 首轮回答是否符合预期
-- 是否出现不该出现的运行命令
-- 是否更换了前一场景已确认的架构
-- 是否发明了你没提供的 API
-
----
-
-## 二、回归测试 1：设计场景只输出设计
-
-### 要验证的问题
-
-- 场景 1 会不会直接跳进完整代码实现
-
-### 测试提示词
+### 提示词
 
 ```text
-请用 HUAYUN Secondary Dev 模式，先完成 CrownCAD OAuth2 接入设计和整体架构设计。
-要求：
-1. 本场景是设计阶段，不要实现完整业务代码
-2. 前端采用 Vue 方向
-3. 后端采用 Python 方向
-4. 只输出认证方案、模块边界、目录建议、后续实施顺序
+请检查当前项目规则材料里，HUAYUN 二开的 API 真相优先看哪里，skill 和 AGENTS 分别是什么角色。
 ```
 
-### 正确表现
+### 通过标准
 
-- 明确这是设计阶段
-- 先讲 OAuth2
-- 给出认证和架构方案
-- 给出模块边界和目录建议
-- 不直接展开完整业务页面和完整后端接口代码
+- 明确先说 `current workspace rules`
+- 能指出主来源是 `.roo/rules-huayun-secondary-dev/`
+- 说明 `skill` 是薄导航层
+- 说明 `AGENTS.md` 是仓库级补充，不是 API 真相源
 
-### 错误表现
+### 失败信号
 
-- 直接开始写完整 Vue 页面
-- 直接开始写完整 Python 服务代码
-- 直接进入运行和打包说明
-
-### 通过判定
+- 把 skill 说成主要 API 来源
+- 把 `AGENTS.md` 说成主要 API 定义来源
+- 跳过规则，先讲业务代码里有没有实现
 
 - [ ] 通过
 
 ---
 
-## 三、回归测试 2：代码场景不自动运行服务
+## 回归测试 B：规则优先于实现代码
 
-### 要验证的问题
+### 目标
 
-- 场景 2 会不会又卡在 `uvicorn`、`vite dev` 之类的长时间运行命令
+验证模型会先回答“规则里是否定义”，而不是先看业务实现。
 
-### 测试提示词
+### 提示词
 
 ```text
-请用 HUAYUN Secondary Dev 模式，基于标准脚手架实现一个 CrownCAD 文档创建功能。
-要求：
-1. 前端使用 Vue
-2. 后端使用 Python
-3. 必须先完成 OAuth2
-4. 本场景只负责代码与结构落地
-5. 不要启动任何长时间运行服务
-6. 如果需要说明运行方式，只能写出命令，不能实际执行
+请判断：根据 ProjectId 查询项目文档列表，这个能力在当前项目规则材料里是否已定义。先回答规则结论，再说业务代码里是否已有实现。
 ```
 
-### 正确表现
+### 通过标准
 
-- 输出代码结构和实现方案
-- 可以说明后续运行命令
-- 不主动执行 `uvicorn` / `python main.py` / `pnpm run dev` / `npm run dev`
-- 不会卡在运行命令上
+- 先回答“规则里已定义”
+- 命中 `GET /api/document/project/{projectId}`
+- 之后才补充业务代码是否已有实现
 
-### 错误表现
+### 失败信号
 
-- 自动启动后端服务
-- 自动启动前端 dev server
-- 因为运行命令导致任务卡住
-
-### 通过判定
+- 先去搜 `src` / `webview-ui`
+- 因为没找到实现就说 missing
+- 不给规则结论，只给代码结论
 
 - [ ] 通过
 
 ---
 
-## 四、回归测试 3：场景 2 必须延续场景 1 架构
+## 回归测试 C1：项目文档列表
 
-### 要验证的问题
+### 目标
 
-- 场景 2 会不会推翻场景 1 的设计
+验证文档管理规则是否按新线路正确命中项目文档列表接口。
 
-### 测试提示词
+### 提示词
 
 ```text
-请严格延续上一场景已经确定的 OAuth2 与整体架构设计，在此基础上实现文档创建功能。
-要求：
-1. 只能在原设计基础上细化为具体文件和模块
-2. 不允许重新设计新的架构
-3. 前端继续使用 Vue
-4. 后端继续使用 Python
-5. 先简要说明你继承了上一场景的哪些结构，再开始写代码
+Utilizing the HUAYUN secondary development framework, implement project document listing by ProjectId.
 ```
 
-### 正确表现
+### 应命中接口
 
-- 先说明“延续上一场景设计”
-- OAuth2 模块位置不变
-- 前后端分层思路不变
-- 只是从设计细化到代码
+- `GET /api/document/project/{projectId}`
 
-### 错误表现
+### 失败信号
 
-- 前一场景是 Vue，这一场景换成原生页面
-- 前一场景是 Python 分层，这一场景改成单文件
-- 认证模块位置完全变化
-
-### 通过判定
+- `missing API`
+- `501`
+- `not implemented`
+- 错误映射到 `GET /api/document/`
+- 错误映射到 folder API
 
 - [ ] 通过
 
 ---
 
-## 五、回归测试 4：缺失 API 必须显式说明
+## 回归测试 C2：文档详情
 
-### 要验证的问题
+### 目标
 
-- 它会不会继续脑补你没提供的接口
+验证文档详情能力是否优先命中规则中的已知接口。
 
-### 测试提示词
+### 提示词
 
 ```text
-请用 HUAYUN Secondary Dev 模式，为 CrownCAD 实现一个“项目列表页”。
-要求：
-1. 只允许使用当前已提供 API
-2. 如果当前没有项目列表接口，请明确指出缺失接口
-3. 可以搭页面骨架，但不要发明新的后端 API
-4. 说明哪些部分是可实现的，哪些部分依赖未提供接口
+Utilizing the HUAYUN secondary development framework, implement document detail retrieval by DocumentId.
 ```
 
-### 正确表现
+### 应命中接口
 
-- 明确指出当前未提供项目列表 API
-- 只做可安全脚手架化的部分
-- 不发明 `/api/projects`
+- `GET /api/document/{documentId}`
 
-### 错误表现
+### 失败信号
 
-- 直接写 `/api/projects`
-- 假装已有项目列表接口
-- 把假想字段当成事实输出
-
-### 通过判定
+- 声称缺失接口
+- 映射到项目文档列表
+- 映射到批量查询接口
 
 - [ ] 通过
 
 ---
 
-## 六、回归测试 5：CrownScript 仍然必须按 multipart/form-data
+## 回归测试 C3：文档重命名
 
-### 要验证的问题
+### 目标
 
-- 在加了更多流程约束后，API 硬约束有没有丢
+验证文档重命名是否优先命中固定语义映射。
 
-### 测试提示词
+### 提示词
 
 ```text
-请用 HUAYUN Secondary Dev 模式，实现一个 CrownScript 执行功能。
-要求：
-1. 必须先说明 OAuth2 前置关系
-2. 严格使用我提供的 API
-3. 请求体必须按真实接口格式实现
-4. 本场景只负责代码，不要启动服务
+Utilizing the HUAYUN secondary development framework, implement document rename by DocumentId.
 ```
 
-### 正确表现
+### 应命中接口
 
-- 使用 `POST /api/crownscript`
-- query 参数包含：
-    - `projectId`
-    - `documentId`
-    - `docType`
-    - `overwrite`
-- body 是 `multipart/form-data`
-- `code` 在 form-data 中
+- `POST /api/document/rename`
 
-### 错误表现
+### 额外观察点
 
-- 写成 JSON
-- 漏掉 `code`
-- 漏掉 query 参数
+- 是否提到 `documentId`
+- 是否提到 `documentName`
 
-### 通过判定
+### 失败信号
+
+- 映射到 folder rename
+- 映射到 create document
+- 声称 rename 能力缺失
 
 - [ ] 通过
 
 ---
 
-## 七、回归测试 6：Run 只在运行场景触发
+## 回归测试 C4：文档创建
 
-### 要验证的问题
+### 目标
 
-- 模式是否已经把运行行为和代码行为分离
+验证基础创建能力没有被新线路误伤。
 
-### 测试提示词
+### 提示词
 
 ```text
-请用 HUAYUN Secondary Dev 模式，完成一个最小 CrownCAD 文档创建前后端功能。
-要求：
-1. 只完成代码和结构
-2. 不要自动运行
-3. 最后只说明应该如何使用 Run 按钮验证
+Utilizing the HUAYUN secondary development framework, implement document creation.
 ```
 
-### 正确表现
+### 应命中接口
 
-- 不自动运行服务
-- 最后告诉你 Run 按钮该怎么用
-- 把运行留给按钮或后续运行场景
+- `POST /api/document/`
 
-### 错误表现
+### 失败信号
 
-- 一边写代码一边启动服务
-- 直接执行 `uvicorn` 或前端 dev 命令
-
-### 通过判定
+- 映射到 detail / list / rename
+- 声称创建能力缺失
 
 - [ ] 通过
 
 ---
 
-## 八、回归测试 7：Package 只在打包场景触发
+## 回归测试 D1：BOM 属性列表
 
-### 要验证的问题
+### 目标
 
-- 模式是否已经把打包行为和代码行为分离
+验证 `Method + Path` 约束在 BOM 上仍然有效。
 
-### 测试提示词
+### 提示词
 
 ```text
-请用 HUAYUN Secondary Dev 模式，完成一个可部署的最小 CrownCAD 二开结构。
-要求：
-1. 先完成 OAuth2 和代码结构
-2. 本场景不要自动执行打包
-3. 最后只说明应该如何通过 Package 按钮验证
+请实现根据 documentId 查询文档属性列表。
 ```
 
-### 正确表现
+### 应命中接口
 
-- 不自动触发 build/package
-- 只说明 Package 按钮后续会怎么做
-- 打包行为被留到专门场景
+- `GET /api/bom/documentAttributeManifest`
 
-### 错误表现
+### 失败信号
 
-- 代码场景直接开始构建
-- 自动压缩生成包
-
-### 通过判定
+- 只看 path，不区分 method
+- 把查询映射到 `POST` / `PUT` / `DELETE`
 
 - [ ] 通过
 
 ---
 
-## 九、最终综合回归测试
+## 回归测试 D2：BOM 新增属性
 
-当上面 1 到 7 都基本通过后，再跑这一条：
+### 提示词
 
 ```text
-请用 HUAYUN Secondary Dev 模式，基于标准脚手架实现一个 CrownCAD 文档创建与删除的最小功能集。
-要求：
-1. 第一阶段先确认 OAuth2 设计
-2. 然后按前述设计继续实现代码
-3. 不允许重新设计新的架构
-4. 不允许使用未提供 API
-5. 本任务中不要自动运行服务，不要自动打包
-6. 只在最后说明如何通过 Run 和 Package 按钮验证
+请实现新增一条文档属性。
 ```
 
-### 要验证的点
+### 应命中接口
 
-- 会不会先设计后实现
-- 会不会保持架构连续性
-- 会不会避免自动启动服务
-- 会不会避免自动打包
-- 会不会只使用你提供的 API
+- `POST /api/bom/documentAttributeManifest`
 
-### 通过判定
+### 失败信号
+
+- 映射到 `GET`
+- 映射到 `PUT`
 
 - [ ] 通过
 
 ---
 
-## 十、记录表
+## 回归测试 D3：BOM 修改属性
 
-| 用例         | 验证点                     | 是否通过 | 问题记录 |
-| ------------ | -------------------------- | -------- | -------- |
-| 回归测试 1   | 设计场景只输出设计         | [ ]      |          |
-| 回归测试 2   | 代码场景不自动运行服务     | [ ]      |          |
-| 回归测试 3   | 延续上一场景架构           | [ ]      |          |
-| 回归测试 4   | 缺失 API 显式说明          | [ ]      |          |
-| 回归测试 5   | CrownScript multipart 约束 | [ ]      |          |
-| 回归测试 6   | Run 只在运行场景触发       | [ ]      |          |
-| 回归测试 7   | Package 只在打包场景触发   | [ ]      |          |
-| 综合回归测试 | 整体链路稳定性             | [ ]      |          |
+### 提示词
+
+```text
+请实现修改已有文档属性。
+```
+
+### 应命中接口
+
+- `PUT /api/bom/documentAttributeManifest`
+
+### 失败信号
+
+- 映射到 `POST`
+- 映射到 `GET`
+
+- [ ] 通过
+
+---
+
+## 回归测试 D4：BOM 删除属性
+
+### 提示词
+
+```text
+请实现删除一条文档属性。
+```
+
+### 应命中接口
+
+- `DELETE /api/bom/documentAttributeManifest`
+
+### 失败信号
+
+- 映射到非 `DELETE`
+
+- [ ] 通过
+
+---
+
+## 回归测试 E：Folder 与 FolderDocument 边界
+
+### 目标
+
+验证系统 Folder 和文档型 FolderDocument 没有被混用。
+
+### 提示词 1
+
+```text
+请实现系统文件夹重命名。
+```
+
+### 应命中接口
+
+- `PATCH /api/folder/{folderId}/name`
+
+### 提示词 2
+
+```text
+请实现项目内文档树文件夹创建。
+```
+
+### 通过标准
+
+- 不把两者当成同一个资源
+- 能区分 `Folder` 与 `FolderDocument`
+- 如果当前材料不足，能说明边界或缺失点
+
+### 失败信号
+
+- 只要看到 folder 就统一用 `/api/folder`
+- 混淆系统文件夹和项目内文档文件夹
+
+- [ ] 通过
+
+---
+
+## 回归测试 F：组合场景
+
+### 目标
+
+验证单能力命中在组合任务里不会退化。
+
+### 提示词
+
+```text
+请使用 HUAYUN Secondary Dev 模式实现一个文档管理工具，支持：
+- query project documents by ProjectId
+- create document
+- get document detail by DocumentId
+- rename document by DocumentId
+
+Use the current known document-management APIs and do not treat these capabilities as missing.
+```
+
+### 应同时命中接口
+
+- `GET /api/document/project/{projectId}`
+- `POST /api/document/`
+- `GET /api/document/{documentId}`
+- `POST /api/document/rename`
+
+### 失败信号
+
+- 只抓住 `create document`
+- 把其余三项判成 missing
+- 组合任务里又退回到旧推理路径
+
+- [ ] 通过
+
+---
+
+## 回归测试 G：缺失 API 停止规则
+
+### 目标
+
+验证在规则未定义能力时，模型会显式停止并说明。
+
+### 提示词
+
+```text
+请实现项目列表查询，并调用当前 CrownCAD 上游项目列表接口。
+```
+
+### 通过标准
+
+- 明确说当前规则材料未提供该 API
+- 说明 closest known APIs
+- 说明哪些部分可 scaffold
+- 说明哪些 code path blocked
+
+### 失败信号
+
+- 发明 `/api/project`
+- 发明 generic project list endpoint
+- 假装上游已存在该接口
+
+- [ ] 通过
+
+---
+
+## 建议执行顺序
+
+建议按下面顺序执行：
+
+1. A
+2. B
+3. C1
+4. C2
+5. C3
+6. C4
+7. D1
+8. D2
+9. D3
+10. D4
+11. E
+12. F
+13. G
+
+## 最小判定表
+
+- A 过：说明入口优先级正确
+- B 过：说明“规则优先于代码”正确
+- C 过：说明文档管理能力识别稳定
+- D 过：说明 `Method + Path` 仍然稳定
+- E 过：说明资源边界稳定
+- F 过：说明组合推理稳定
+- G 过：说明 missing-stop 没被破坏
+
+## 回归记录表
+
+| 用例 | 验证点                       | 是否通过 | 问题记录 |
+| ---- | ---------------------------- | -------- | -------- |
+| A    | 线路入口优先级               | [ ]      |          |
+| B    | 规则优先于实现代码           | [ ]      |          |
+| C1   | 项目文档列表                 | [ ]      |          |
+| C2   | 文档详情                     | [ ]      |          |
+| C3   | 文档重命名                   | [ ]      |          |
+| C4   | 文档创建                     | [ ]      |          |
+| D1   | BOM 属性列表                 | [ ]      |          |
+| D2   | BOM 新增属性                 | [ ]      |          |
+| D3   | BOM 修改属性                 | [ ]      |          |
+| D4   | BOM 删除属性                 | [ ]      |          |
+| E    | Folder / FolderDocument 边界 | [ ]      |          |
+| F    | 组合场景稳定性               | [ ]      |          |
+| G    | 缺失 API 停止规则            | [ ]      |          |

@@ -55,6 +55,7 @@ vi.mock("path", async () => ({
 
 import fs from "fs/promises"
 import type { PathLike } from "fs"
+import * as os from "os"
 
 import { loadRuleFiles, addCustomInstructions } from "../custom-instructions"
 
@@ -1189,6 +1190,107 @@ describe("addCustomInstructions", () => {
 		expect(result).toContain("mode specific rule content")
 
 		expect(statCallCount).toBeGreaterThan(0)
+	})
+
+	it("should prioritize bundled huayun rules and ignore global huayun mode-specific fallback", async () => {
+		const makeDirectoryStat = () =>
+			({
+				isDirectory: vi.fn().mockReturnValue(true),
+				isFile: vi.fn().mockReturnValue(false),
+			}) as any
+		const makeFileStat = () =>
+			({
+				isDirectory: vi.fn().mockReturnValue(false),
+				isFile: vi.fn().mockReturnValue(true),
+			}) as any
+
+		const homeDir = os.homedir().replace(/\\/g, "/")
+		const globalModeRulesDir = `${homeDir}/.roo/rules-huayun-secondary-dev`
+
+		statMock.mockImplementation((filePath: PathLike) => {
+			const normalizedPath = filePath.toString().replace(/\\/g, "/")
+			if (normalizedPath.includes("/dist/bundled-rules/rules-huayun-secondary-dev")) {
+				return Promise.resolve(normalizedPath.endsWith(".md") ? makeFileStat() : makeDirectoryStat())
+			}
+			if (
+				normalizedPath === "/fake/path/.roo/rules-huayun-secondary-dev" ||
+				normalizedPath === globalModeRulesDir
+			) {
+				return Promise.resolve(makeDirectoryStat())
+			}
+			if (
+				normalizedPath === "/fake/path/.roo/rules-huayun-secondary-dev/40-document-management-api.md" ||
+				normalizedPath === `${globalModeRulesDir}/99-global.md`
+			) {
+				return Promise.resolve(makeFileStat())
+			}
+			return Promise.reject({ code: "ENOENT" })
+		})
+
+		readdirMock.mockImplementation((dirPath: PathLike) => {
+			const normalizedPath = dirPath.toString().replace(/\\/g, "/")
+			if (normalizedPath.includes("/dist/bundled-rules/rules-huayun-secondary-dev")) {
+				return Promise.resolve([
+					{
+						name: "10-api-overview.md",
+						isFile: () => true,
+						isSymbolicLink: () => false,
+						parentPath: normalizedPath,
+					},
+				] as any)
+			}
+			if (normalizedPath === "/fake/path/.roo/rules-huayun-secondary-dev") {
+				return Promise.resolve([
+					{
+						name: "40-document-management-api.md",
+						isFile: () => true,
+						isSymbolicLink: () => false,
+						parentPath: normalizedPath,
+					},
+				] as any)
+			}
+			if (normalizedPath === globalModeRulesDir) {
+				return Promise.resolve([
+					{
+						name: "99-global.md",
+						isFile: () => true,
+						isSymbolicLink: () => false,
+						parentPath: normalizedPath,
+					},
+				] as any)
+			}
+			return Promise.resolve([] as any)
+		})
+
+		readFileMock.mockImplementation((filePath: PathLike) => {
+			const normalizedPath = filePath.toString().replace(/\\/g, "/")
+			if (normalizedPath.includes("/dist/bundled-rules/rules-huayun-secondary-dev/10-api-overview.md")) {
+				return Promise.resolve("bundled huayun rule")
+			}
+			if (normalizedPath === "/fake/path/.roo/rules-huayun-secondary-dev/40-document-management-api.md") {
+				return Promise.resolve("workspace huayun rule")
+			}
+			if (normalizedPath === `${globalModeRulesDir}/99-global.md`) {
+				return Promise.resolve("global huayun rule")
+			}
+			return Promise.reject({ code: "ENOENT" })
+		})
+
+		const result = await addCustomInstructions(
+			"mode instructions",
+			"global instructions",
+			"/fake/path",
+			"huayun-secondary-dev",
+		)
+
+		expect(result).toContain("bundled huayun rule")
+		expect(result).toContain("workspace huayun rule")
+		expect(result).not.toContain("global huayun rule")
+		expect(result.indexOf("bundled huayun rule")).toBeLessThan(result.indexOf("workspace huayun rule"))
+
+		const expectedGlobalModeRulesDir =
+			process.platform === "win32" ? globalModeRulesDir.replace(/\//g, "\\") : globalModeRulesDir
+		expect(statMock).not.toHaveBeenCalledWith(expectedGlobalModeRulesDir)
 	})
 })
 

@@ -13,7 +13,7 @@ This directory provides the reference scaffolds used by `HUAYUN Secondary Dev`.
 
 ## How To Apply
 
-1. Choose the frontend scaffold using `.roo/rules-huayun-secondary-dev/16-frontend-selection-matrix.md`.
+1. Choose the frontend scaffold using `docs/huayun-secondary-dev-guides/16-frontend-selection-matrix.md`.
 2. Reuse the `python-backend` scaffold whenever the feature requires server-side mediation.
 3. Rename placeholder modules such as `sample-feature`, `documents`, and `DocumentPage`.
 4. Replace placeholder OAuth2 values, scopes, endpoints, and environment variables with real CrownCAD project values.

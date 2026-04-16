@@ -639,11 +639,12 @@ describe("FileRestrictionError", () => {
 			})
 			expect(huayunMode?.customInstructions).toContain("OAuth2 authentication is a mandatory first phase")
 			expect(huayunMode?.customInstructions).toContain("Follow a stable layered architecture")
+			expect(huayunMode?.customInstructions).toContain("prefer Vue for frontend implementation by default")
 			expect(huayunMode?.customInstructions).toContain(
-				"Frontend may use either plain JavaScript plus HTML/CSS or Vue",
+				"use plain JavaScript plus HTML/CSS only when the page is extremely small",
 			)
 			expect(huayunMode?.customInstructions).toContain(
-				"Backend services, scripts, and server-side integrations must use Python",
+				"backend services, scripts, and server-side integrations must use Python",
 			)
 			expect(huayunMode?.customInstructions).toContain("start from the standard HUAYUN scaffold template")
 			expect(huayunMode?.customInstructions).toContain("applicationId")
@@ -654,15 +655,15 @@ describe("FileRestrictionError", () => {
 			expect(huayunMode?.customInstructions).toContain("application/x-www-form-urlencoded")
 			expect(huayunMode?.customInstructions).toContain("client_secret")
 			expect(huayunMode?.customInstructions).toContain("client_scope")
-			expect(huayunMode?.customInstructions).toContain("Map callback `scope`")
+			expect(huayunMode?.customInstructions).toContain("map callback `scope`")
 			expect(huayunMode?.customInstructions).toContain("do not ask the user to paste it in chat")
 			expect(huayunMode?.customInstructions).toContain("HUAYUN_CLIENT_SECRET")
-			expect(huayunMode?.customInstructions).toContain("Never hardcode, print, log, or expose")
+			expect(huayunMode?.customInstructions).toContain("never hardcode, print, log, or expose")
 			expect(huayunMode?.customInstructions).toContain("explicitly report the missing capability")
-			expect(huayunMode?.customInstructions).toContain("Do not create fake upstream paths")
-			expect(huayunMode?.customInstructions).toContain("Treat standard system Folder APIs as known")
+			expect(huayunMode?.customInstructions).toContain("do not create fake upstream paths")
+			expect(huayunMode?.customInstructions).toContain("treat standard system Folder APIs as known")
 			expect(huayunMode?.customInstructions).toContain("`DELETE /api/folder/{folderId}`")
-			expect(huayunMode?.customInstructions).toContain("Do not report system Folder query")
+			expect(huayunMode?.customInstructions).toContain("do not report system Folder query")
 			expect(huayunMode?.customInstructions).toContain("document-type `FolderDocument`")
 		})
 	})

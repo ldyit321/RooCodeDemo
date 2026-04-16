@@ -15,6 +15,8 @@ import {
 	getGlobalRooDirectory,
 } from "../../../services/roo-config"
 
+const BUILT_IN_HUAYUN_MODE_SLUG = "huayun-secondary-dev"
+
 /**
  * Safely read a file and return its trimmed content
  */
@@ -194,6 +196,58 @@ function formatDirectoryContent(files: Array<{ filename: string; content: string
 			return `# Rules from ${displayPath}:\n${file.content}`
 		})
 		.join("\n\n")
+}
+
+function formatBundledModeDirectoryContent(
+	files: Array<{ filename: string; content: string }>,
+	mode: string,
+	resourceRoot: string,
+): string {
+	if (files.length === 0) return ""
+
+	return files
+		.map((file) => {
+			const displayPath = path.posix.join(resourceRoot, path.basename(file.filename))
+			return `# Rules from ${displayPath}:\n${file.content}`
+		})
+		.join("\n\n")
+}
+
+async function loadBundledModeRules(mode: string): Promise<string> {
+	if (mode !== BUILT_IN_HUAYUN_MODE_SLUG) {
+		return ""
+	}
+
+	const candidateDirectories = [
+		path.resolve(__dirname, "bundled-rules", `rules-${mode}`),
+		path.resolve(__dirname, "../../../dist/bundled-rules", `rules-${mode}`),
+	]
+
+	for (const candidateDir of candidateDirectories) {
+		if (await directoryExists(candidateDir)) {
+			const files = await readTextFilesFromDirectory(candidateDir)
+			if (files.length > 0) {
+				return formatBundledModeDirectoryContent(files, mode, `built-in/rules-${mode}`)
+			}
+		}
+	}
+
+	return ""
+}
+
+async function getModeSpecificRooDirectories(
+	cwd: string,
+	mode: string,
+	enableSubfolderRules: boolean,
+): Promise<string[]> {
+	const rooDirectories = enableSubfolderRules ? await getAllRooDirectoriesForCwd(cwd) : getRooDirectoriesForCwd(cwd)
+
+	if (mode === BUILT_IN_HUAYUN_MODE_SLUG) {
+		const globalRooDirectory = getGlobalRooDirectory()
+		return rooDirectories.filter((dir) => dir !== globalRooDirectory)
+	}
+
+	return rooDirectories
 }
 
 /**
@@ -401,10 +455,12 @@ export async function addCustomInstructions(
 
 	if (mode) {
 		const modeRules: string[] = []
-		// Use recursive discovery only if enableSubfolderRules is true
-		const rooDirectories = enableSubfolderRules
-			? await getAllRooDirectoriesForCwd(cwd)
-			: getRooDirectoriesForCwd(cwd)
+		const bundledModeRules = await loadBundledModeRules(mode)
+		if (bundledModeRules) {
+			modeRules.push(bundledModeRules)
+		}
+
+		const rooDirectories = await getModeSpecificRooDirectories(cwd, mode, enableSubfolderRules)
 
 		// Check for .roo/rules-${mode}/ directories in order (global, project-local, and optionally subfolders)
 		for (const rooDir of rooDirectories) {
@@ -421,7 +477,10 @@ export async function addCustomInstructions(
 		// If we found mode-specific rules in .roo/rules-${mode}/ directories, use them
 		if (modeRules.length > 0) {
 			modeRuleContent = "\n" + modeRules.join("\n\n")
-			usedRuleFile = `rules-${mode} directories`
+			usedRuleFile =
+				mode === BUILT_IN_HUAYUN_MODE_SLUG
+					? `built-in and workspace rules-${mode} directories`
+					: `rules-${mode} directories`
 		} else {
 			// Fall back to existing behavior for legacy files
 			const rooModeRuleFile = `.roorules-${mode}`

@@ -7,8 +7,19 @@ This file defines the default validation and delivery phase behavior for `huayun
 - Keep design, implementation, runtime validation, and packaging work separated
 - Prevent the mode from starting long-running services too early
 - Make scenario-based verification consistent across repeated tasks
+- Keep prompt-time rule lookup, API understanding, and execution responsibilities separated
 
 ## Default Phase Rules
+
+### Phase 0: Prompt And Rule Resolution
+
+- Before design or implementation, resolve the task through the HUAYUN prompt route first:
+    - mode and runtime settings
+    - current workspace HUAYUN rules
+    - relevant module rule file
+    - thin skill and `AGENTS.md` as supplements
+- If the user is asking whether an API, field, enum, or capability exists, answer from rule materials first before falling back to business implementation code.
+- Do not treat missing implementation wrappers as proof that the upstream contract is missing.
 
 ### Phase A: Authentication And Architecture Design
 

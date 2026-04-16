@@ -73,9 +73,7 @@ describe("secondaryDevPromptContext", () => {
 		expect(result).toContain("inspect the current workspace first")
 		expect(result).toContain("Do not prefer user-home rule directories")
 		expect(result).toContain("Use user-home or global rule directories only as a fallback")
-		expect(result).toContain(
-			"Treat internal rule paths such as `.roo/...` and `.roomodes` as implementation details",
-		)
+		expect(result).toContain("Treat internal rule paths such as `.roo/...` as implementation details")
 		expect(result).toContain("say `current project rule materials` or `current project configuration`")
 		expect(result).toContain("treat the task as rule-material lookup by default")
 		expect(result).toContain("answer the rule-material conclusion first")

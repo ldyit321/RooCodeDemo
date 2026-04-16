@@ -7,16 +7,25 @@ This file defines non-negotiable API usage rules for `huayun-secondary-dev`.
 - Use only the APIs, paths, fields, and authentication information that have been explicitly provided in the repository rules, docs, or user materials.
 - Treat the latest OpenAPI snapshot as the primary source of truth for current CrownCAD-covered capabilities.
 - Treat older supplemental materials such as CrownScript as secondary references that require explicit task relevance.
-- For this project, treat the current workspace rule set as the primary local rule source, especially `.roomodes`, `.roo/rules-huayun-secondary-dev`, and `.roo/skills`.
-- Do not prefer user-home rule directories such as `C:\Users\admin\.roo\...` when the current workspace already contains the relevant HUAYUN mode, rules, or skills.
+- Enforce this HUAYUN decision order for interpretation:
+    1. current mode behavior and Secondary Dev runtime configuration
+    2. current workspace HUAYUN rules
+    3. relevant module-specific HUAYUN rule file
+    4. thin skill and `AGENTS.md` only as supplements
+    5. business implementation code only after rule-material conclusions are clear
+- Do not let thin skill content override current workspace HUAYUN rules.
+- Do not let `AGENTS.md` override current workspace HUAYUN API truth.
+- For this project, treat the current workspace HUAYUN rules under `.roo/rules-huayun-secondary-dev` as the primary local rule source.
+- Do not prefer user-home rule directories such as `C:\Users\admin\.roo\...` when the current workspace already contains the relevant HUAYUN mode and rules.
 - Use user-home or global rule directories only as a fallback when the current workspace does not contain the needed HUAYUN rule material.
-- Treat `.roo/...` and `.roomodes` paths as internal implementation details unless the user explicitly asks for them.
+- Treat `.roo/...` paths as internal implementation details unless the user explicitly asks for them.
 - In normal user-facing answers, refer to `current project rule materials` or `current project configuration` instead of assuming the user knows internal rule directory names.
 - When the user asks whether rule materials define an API, contract, field, enum, or capability, treat the task as rule-material lookup by default, not as business implementation-code lookup.
 - For rule-material lookup tasks, answer the rule-material conclusion first, and only then optionally state whether business code has already implemented it.
 - If concluding that rule materials do not define an interface or contract, provide the lookup basis instead of inferring from missing implementation code.
-- When the task asks whether an API, request contract, field, enum, or capability exists, inspect HUAYUN rule materials first, especially `.roo/rules-huayun-secondary-dev`, `.roo/skills`, and exported skill references, before concluding from business implementation code.
+- When the task asks whether an API, request contract, field, enum, or capability exists, inspect HUAYUN rule materials first, especially `.roo/rules-huayun-secondary-dev`, before concluding from business implementation code.
 - Distinguish `present in rules/materials` from `already implemented in business code`.
+- For API lookup tasks, stop at the earliest authoritative rule layer that answers the question; do not continue searching business code just to overturn a clear rule conclusion.
 - Do not report `missing API material` or `not found` merely because `src`, `webview-ui`, backend, or other implementation directories do not yet contain a concrete wrapper, request client, or usage site.
 - When multiple HTTP methods share the same path, do not determine API semantics from URL alone.
 - For same-path multi-method interfaces, determine semantics by `Method + Path` together.
@@ -36,6 +45,17 @@ This file defines non-negotiable API usage rules for `huayun-secondary-dev`.
 - Code may include typed placeholders or TODO boundaries only when they do not pretend to call a real upstream endpoint.
 - Do not implement fake request wrappers, fake backend proxy routes, fake response models, or fake mock-to-production paths that look like real CrownCAD APIs.
 - If the user asks for a business feature whose core API is missing, build only the UI skeleton, local validation, or integration seam that can be verified without inventing the upstream API.
+
+## Route Enforcement
+
+- For HUAYUN tasks, treat prompt-time rule interpretation and code-time implementation lookup as separate steps.
+- First determine the requested capability from mode + runtime settings + current workspace rules.
+- Then map the capability to the most specific known `Method + Path`.
+- Only after the rule-material mapping is clear may business implementation code be used to choose where to place wrappers, routes, services, or UI.
+- Do not reverse this order.
+- Do not use absence of local wrappers, services, or proxy files as evidence that a rule-defined upstream API is missing.
+- If thin skill guidance is broader than a module rule file, follow the module rule file.
+- If `AGENTS.md` guidance is broader than HUAYUN rules, follow HUAYUN rules for API truth and use `AGENTS.md` only for repository workflow constraints.
 
 ## Current Known API Scope
 

@@ -2,6 +2,27 @@
 
 These API notes are part of the `huayun-secondary-dev` mode context.
 
+## Runtime Decision Route
+
+For HUAYUN secondary development tasks, follow this route in order:
+
+1. current mode behavior and Secondary Dev runtime configuration
+2. current workspace HUAYUN rules under `.roo/rules-huayun-secondary-dev/`
+3. the relevant module rule file for the requested capability
+4. thin skill and `AGENTS.md` only as supplemental navigation or repository guidance
+5. business implementation code only after rule-material conclusions are already clear
+
+Do not skip directly from user wording to business-code lookup when the task is really asking about API existence, contract meaning, enum values, or capability coverage.
+
+## API Lookup Priority
+
+- For API existence, request contract, field, enum, and capability questions, inspect rule materials before implementation code.
+- Prefer the most specific module rule file over general inference.
+- If overview and module rules agree, treat that result as authoritative.
+- If overview is broad but a module file is more specific, follow the module file.
+- Thin skill content must not become a second API truth source.
+- `AGENTS.md` may refine repository workflow, but it must not replace HUAYUN API truth stored in current workspace rules.
+
 ## Latest Source Snapshot
 
 - Latest OpenAPI document provided by the user:
