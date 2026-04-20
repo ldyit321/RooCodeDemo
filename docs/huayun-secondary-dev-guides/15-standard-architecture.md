@@ -18,18 +18,13 @@ This file defines the default implementation shape for `huayun-secondary-dev`.
 ## Scaffold Baseline
 
 - When the feature is new, start from `templates/huayun-secondary-dev/`
-- Use `plain-frontend/` as the baseline for small page-local work
-- Use `vue-frontend/` as the baseline for reusable or shared-state modules
+- Use `vue-frontend/` as the frontend baseline for HUAYUN secondary development work
 - Use `python-backend/` as the backend baseline whenever server-side mediation is required
 
 ## Default Frontend Shape
 
 For non-trivial features, prefer:
 
-- Plain page option:
-    - `frontend/pages/<feature>/index.html`
-    - `frontend/pages/<feature>/styles.css`
-    - `frontend/pages/<feature>/app.js`
 - Vue option:
     - `frontend/src/pages/<FeaturePage>.vue`
     - `frontend/src/components/`
@@ -45,6 +40,8 @@ For non-trivial features, prefer:
 For non-trivial server-side work, prefer:
 
 - `backend/app/main.py`
+- `backend/pyproject.toml`
+- `backend/.env` or `backend/.env.example`
 - `backend/app/routes/<feature>.py`
 - `backend/app/services/<feature>_service.py`
 - `backend/app/clients/crowncad_client.py`
@@ -52,11 +49,10 @@ For non-trivial server-side work, prefer:
 - `backend/app/schemas/<feature>.py`
 - `backend/tests/`
 
+This standard backend shape is the default required output for newly generated HUAYUN Python backends. Do not switch to alternate entry files such as `backend/app.py` or `backend/server.py` unless the user explicitly requests a different structure.
+
 ## Responsibility Boundaries
 
-- HTML defines structure
-- CSS defines presentation
-- Frontend JS coordinates user interaction and view state
 - Vue SFCs define component composition and delegate shared logic to composables and services
 - Shared auth modules own OAuth2 state and token handling
 - Shared API modules own request construction and response parsing

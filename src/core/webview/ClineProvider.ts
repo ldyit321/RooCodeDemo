@@ -78,6 +78,7 @@ import { MdmService } from "../../services/mdm/MdmService"
 import { SkillsManager } from "../../services/skills/SkillsManager"
 
 import { fileExistsAtPath } from "../../utils/fs"
+import { canRunAndOpenSecondaryDevWorkspace, discoverSecondaryDevWorkspace } from "./secondaryDevWorkflow"
 import { setTtsEnabled, setTtsSpeed } from "../../utils/tts"
 import { getWorkspaceGitInfo } from "../../utils/git"
 import { getWorkspacePath } from "../../utils/path"
@@ -2192,6 +2193,7 @@ export class ClineProvider
 			secondaryDevAuthorizePath,
 			secondaryDevAuthorizationUrl,
 			secondaryDevFrontendRedirectUrl,
+			secondaryDevDebugDocumentId,
 			secondaryDevTokenPath,
 			secondaryDevTokenUrl,
 			secondaryDevScope,
@@ -2248,6 +2250,14 @@ export class ClineProvider
 		const mergedDeniedCommands = this.mergeDeniedCommands(deniedCommands)
 		const cwd = this.cwd
 		const currentTask = this.getCurrentTask()
+		const discoveredSecondaryDevWorkspace =
+			mode === "huayun-secondary-dev" && cwd ? await discoverSecondaryDevWorkspace(cwd) : undefined
+		const secondaryDevRunAndOpenAvailable = discoveredSecondaryDevWorkspace
+			? canRunAndOpenSecondaryDevWorkspace(discoveredSecondaryDevWorkspace)
+			: false
+		const secondaryDevDockerStartAvailable = Boolean(
+			discoveredSecondaryDevWorkspace?.frontend || discoveredSecondaryDevWorkspace?.backend,
+		)
 
 		return {
 			version: this.context.extension?.packageJSON?.version ?? "",
@@ -2328,9 +2338,12 @@ export class ClineProvider
 			secondaryDevAuthorizePath: secondaryDevAuthorizePath ?? "",
 			secondaryDevAuthorizationUrl: secondaryDevAuthorizationUrl ?? "",
 			secondaryDevFrontendRedirectUrl: secondaryDevFrontendRedirectUrl ?? "",
+			secondaryDevDebugDocumentId: secondaryDevDebugDocumentId ?? "",
 			secondaryDevTokenPath: secondaryDevTokenPath ?? "",
 			secondaryDevTokenUrl: secondaryDevTokenUrl ?? "",
 			secondaryDevScope: secondaryDevScope ?? "",
+			secondaryDevRunAndOpenAvailable,
+			secondaryDevDockerStartAvailable,
 			cloudUserInfo,
 			cloudIsAuthenticated: cloudIsAuthenticated ?? false,
 			cloudAuthSkipModel: this.context.globalState.get<boolean>("roo-auth-skip-model") ?? false,
@@ -2488,6 +2501,18 @@ export class ClineProvider
 			)
 		}
 
+		const currentMode = stateValues.mode ?? defaultModeSlug
+		const discoveredSecondaryDevWorkspace =
+			currentMode === "huayun-secondary-dev" && this.cwd
+				? await discoverSecondaryDevWorkspace(this.cwd)
+				: undefined
+		const secondaryDevRunAndOpenAvailable = discoveredSecondaryDevWorkspace
+			? canRunAndOpenSecondaryDevWorkspace(discoveredSecondaryDevWorkspace)
+			: false
+		const secondaryDevDockerStartAvailable = Boolean(
+			discoveredSecondaryDevWorkspace?.frontend || discoveredSecondaryDevWorkspace?.backend,
+		)
+
 		// Return the same structure as before.
 		return {
 			apiConfiguration: providerSettings,
@@ -2561,9 +2586,12 @@ export class ClineProvider
 			secondaryDevAuthorizePath: stateValues.secondaryDevAuthorizePath ?? "",
 			secondaryDevAuthorizationUrl: stateValues.secondaryDevAuthorizationUrl ?? "",
 			secondaryDevFrontendRedirectUrl: stateValues.secondaryDevFrontendRedirectUrl ?? "",
+			secondaryDevDebugDocumentId: stateValues.secondaryDevDebugDocumentId ?? "",
 			secondaryDevTokenPath: stateValues.secondaryDevTokenPath ?? "",
 			secondaryDevTokenUrl: stateValues.secondaryDevTokenUrl ?? "",
 			secondaryDevScope: stateValues.secondaryDevScope ?? "",
+			secondaryDevRunAndOpenAvailable,
+			secondaryDevDockerStartAvailable,
 			cloudUserInfo,
 			cloudIsAuthenticated,
 			sharingEnabled,

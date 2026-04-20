@@ -37,6 +37,7 @@ export interface SecondaryDevPromptState {
 	secondaryDevAuthorizePath?: string
 	secondaryDevAuthorizationUrl?: string
 	secondaryDevFrontendRedirectUrl?: string
+	secondaryDevDebugDocumentId?: string
 	secondaryDevTokenPath?: string
 	secondaryDevTokenUrl?: string
 	secondaryDevScope?: string
@@ -50,6 +51,7 @@ export const buildSecondaryDevPromptContext = (state: SecondaryDevPromptState): 
 	const baseUrl = trimValue(state.secondaryDevBaseUrl)
 	const clientId = trimValue(state.secondaryDevClientId)
 	const frontendRedirectUrl = trimValue(state.secondaryDevFrontendRedirectUrl)
+	const debugDocumentId = trimValue(state.secondaryDevDebugDocumentId)
 	const scope = trimValue(state.secondaryDevScope)
 	const oauthEnabled = state.secondaryDevOAuthEnabled !== false
 	const clientSecretConfigured = trimValue(state.secondaryDevClientSecret).length > 0
@@ -76,6 +78,7 @@ export const buildSecondaryDevPromptContext = (state: SecondaryDevPromptState): 
 		Boolean(authorizePath) ||
 		Boolean(authorizationUrl) ||
 		Boolean(frontendRedirectUrl) ||
+		Boolean(debugDocumentId) ||
 		Boolean(tokenPath) ||
 		Boolean(tokenUrl) ||
 		Boolean(scope) ||
@@ -89,7 +92,7 @@ export const buildSecondaryDevPromptContext = (state: SecondaryDevPromptState): 
 		"HUAYUN Secondary Development Runtime Configuration",
 		"- The project's secondary development configuration is stored in the Settings UI under `二开配置` / `Secondary Dev`, not in arbitrary workspace files.",
 		"- Treat these settings as the authoritative runtime configuration for HUAYUN secondary development tasks.",
-		"- Treat HUAYUN mode, configured Secondary Dev settings, frontend/backend OAuth responsibility split, backend-only secret/token handling, and missing-API stop behavior as always-on defaults. Do not require the user to restate any of them in later prompts.",
+		"- Treat HUAYUN mode, configured Secondary Dev settings, frontend/backend OAuth responsibility split, backend-only secret/token handling, iframe-safe session design, and missing-API stop behavior as always-on defaults. Do not require the user to restate any of them in later prompts.",
 		"- Do not ask the user where these settings are stored unless a required value is actually missing.",
 		"- Follow this HUAYUN decision route in order: mode behavior + configured Secondary Dev settings -> current workspace HUAYUN rules -> relevant module rule file -> thin skill / AGENTS supplement -> business implementation code.",
 		"- Treat prompt-time rule interpretation and code-time implementation lookup as separate steps; do not reverse that order.",
@@ -98,7 +101,7 @@ export const buildSecondaryDevPromptContext = (state: SecondaryDevPromptState): 
 		"- When the user is a non-developer engineering designer, translate concise CAD/business language into the required technical workflow internally and avoid asking them to repeat platform constraints already defined by this mode.",
 		"- Ask follow-up questions only for missing business decisions or destructive/ambiguous operations; do not ask for technical defaults that are already defined by HUAYUN Secondary Dev settings, rules, or scaffold conventions.",
 		"- Prefer short, actionable Chinese explanations for user-facing responses unless the user asks for deeper technical detail.",
-		"- Prefer Vue for frontend implementation by default. Use plain JavaScript + HTML/CSS only when the page is extremely small, mostly static, or the user explicitly asks for native frontend.",
+		"- Frontend implementation must use Vue in HUAYUN Secondary Dev mode. Do not choose plain JavaScript + HTML/CSS as the primary frontend delivery path.",
 		`- Configuration readiness: ${configReadiness}`,
 		`- Missing required config fields: ${missingRequiredFields.length > 0 ? missingRequiredFields.join(", ") : "none"}`,
 		"- If configuration readiness is complete, do not ask the user again for Base URL, OAuth URLs/paths, Frontend OAuth Redirect URL, Client ID, Client Secret, or Scope.",
@@ -107,11 +110,13 @@ export const buildSecondaryDevPromptContext = (state: SecondaryDevPromptState): 
 		"- Build the HUAYUN authorization entry with `applicationId` from Client ID and `redirectUrl` from Frontend OAuth Redirect URL.",
 		"- Do not silently rewrite the HUAYUN authorization entry query parameters to generic OAuth names such as `client_id` or `redirect_uri`.",
 		"- The configured Frontend OAuth Redirect URL is a frontend URL. Generated frontend code must implement and register the exact callback path implied by that URL, and must not omit the frontend route/path segment.",
+		"- If Debug Document ID is configured, local VS Code debugging should simulate host application entry by opening the frontend through `origin + /{documentId}`.",
+		"- Generated frontend routing should support receiving the document identifier from the path segment when the host application opens the plugin through `/{documentId}`.",
 		"- OAuth browser entry and callback handling should happen in the frontend by default, even when the user does not restate that frontend responsibility in the task prompt.",
 		"- For the default HUAYUN redirect callback, assume the platform returns `code` and `scope` through the configured Frontend OAuth Redirect URL.",
 		"- Do not assume the platform returns `state` unless the user explicitly confirms that their platform callback includes it.",
 		"- After the frontend receives `code` and `scope`, it should call the backend token-exchange endpoint and pass those values to the backend.",
-		"- Backend token exchange, backend token storage, and backend secret isolation are mandatory default architecture rules in this mode; do not wait for the user to ask for that split explicitly.",
+		"- Backend token exchange, backend token storage, backend session issuance, and backend secret isolation are mandatory default architecture rules in this mode; do not wait for the user to ask for that split explicitly.",
 		"- For code-to-token exchange, POST `application/x-www-form-urlencoded` to `{baseUrl}/{tokenPath}`.",
 		"- Token exchange form fields must be `grant_type`, `code`, `client_id`, `client_secret`, and `client_scope`.",
 		"- Map callback `scope` to token form field `client_scope`; do not use `scope`, `state`, `applicationId`, `redirectUrl`, or `redirect_uri` as default token exchange form field names.",
@@ -123,7 +128,12 @@ export const buildSecondaryDevPromptContext = (state: SecondaryDevPromptState): 
 		"- Never print, hardcode, log, or expose the raw Client Secret. If configured secret reading fails in generated code, create a backend-only placeholder such as `HUAYUN_CLIENT_SECRET`; do not fall back to writing the secret literal into project files.",
 		"- If a standalone generated project cannot directly access extension settings, create or reuse a named backend-only config placeholder such as `HUAYUN_CLIENT_SECRET` and report that secret binding is required instead of requesting the raw Client Secret from the user.",
 		"- Final OAuth tokens such as `access_token`, `refresh_token`, or `id_token` must remain backend-only. Do not expose raw token values to frontend code, browser storage, URLs, or user-visible pages.",
-		"- Frontend code should communicate with backend session, cookie, or proxy endpoints after login instead of directly storing or using the raw OAuth token payload.",
+		"- Because HUAYUN plugins are commonly embedded by iframe inside other systems, generated frontend/backend session design must support a Cookie + Header dual-channel strategy instead of relying on cookies alone.",
+		"- The backend should issue a backend-controlled session through both an HttpOnly cookie channel and a header fallback channel such as `X-Huayun-Session`.",
+		"- The header fallback must carry only a backend-issued session identifier or signed session token, never the raw upstream OAuth token payload.",
+		"- Frontend request layers should send `credentials: include` and also attach the configured session header when a backend-issued session value is available.",
+		"- Backend auth, middleware, and proxy layers should accept the cookie channel first and fall back to the configured session header when cookie delivery fails because of iframe embedding, cross-site, or browser privacy restrictions.",
+		"- Backend CORS and session settings should explicitly allow the credentialed iframe use case and the configured custom session header.",
 		"- Do not invent CrownCAD upstream API paths, request fields, response fields, enum values, or workflow steps that are not present in the provided API material.",
 		"- When multiple HTTP methods share the same upstream path, never determine API semantics from URL alone.",
 		"- For same-path multi-method APIs, determine capability semantics by `Method + Path` together.",
@@ -155,6 +165,7 @@ export const buildSecondaryDevPromptContext = (state: SecondaryDevPromptState): 
 		`- Authorize Path: ${authorizePath || "(missing)"}`,
 		`- Authorization URL: ${authorizationUrl || "(missing)"}`,
 		`- Frontend OAuth Redirect URL: ${frontendRedirectUrl || "(missing)"}`,
+		`- Debug Document ID: ${debugDocumentId || "(not configured)"}`,
 		`- Token Path: ${tokenPath || "(missing)"}`,
 		`- Token URL: ${tokenUrl || "(missing)"}`,
 		`- Scope: ${scope || "(empty)"}`,

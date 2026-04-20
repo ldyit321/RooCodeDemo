@@ -16,6 +16,7 @@ interface SecondaryDevSettingsProps extends HTMLAttributes<HTMLDivElement> {
 	secondaryDevAuthorizePath?: string
 	secondaryDevAuthorizationUrl?: string
 	secondaryDevFrontendRedirectUrl?: string
+	secondaryDevDebugDocumentId?: string
 	secondaryDevTokenPath?: string
 	secondaryDevTokenUrl?: string
 	secondaryDevScope?: string
@@ -86,6 +87,7 @@ export const SecondaryDevSettings = ({
 	secondaryDevAuthorizePath,
 	secondaryDevAuthorizationUrl,
 	secondaryDevFrontendRedirectUrl,
+	secondaryDevDebugDocumentId,
 	secondaryDevTokenPath,
 	secondaryDevTokenUrl,
 	secondaryDevScope,
@@ -268,6 +270,29 @@ export const SecondaryDevSettings = ({
 								/>
 								<div className="text-vscode-descriptionForeground text-sm">
 									{t("settings:secondaryDev.frontendRedirectUrl.description")}
+								</div>
+							</div>
+						</SearchableSetting>
+
+						<SearchableSetting
+							settingId="secondary-dev-debug-document-id"
+							section="secondaryDev"
+							label={t("settings:secondaryDev.debugDocumentId.label")}>
+							<div className="flex flex-col gap-2">
+								<label className="font-medium" htmlFor="secondary-dev-debug-document-id">
+									{t("settings:secondaryDev.debugDocumentId.label")}
+								</label>
+								<Input
+									id="secondary-dev-debug-document-id"
+									value={secondaryDevDebugDocumentId || ""}
+									onChange={(event) =>
+										setCachedStateField("secondaryDevDebugDocumentId", event.target.value)
+									}
+									placeholder={t("settings:secondaryDev.debugDocumentId.placeholder")}
+									data-testid="secondary-dev-debug-document-id-input"
+								/>
+								<div className="text-vscode-descriptionForeground text-sm">
+									{t("settings:secondaryDev.debugDocumentId.description")}
 								</div>
 							</div>
 						</SearchableSetting>

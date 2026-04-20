@@ -102,6 +102,7 @@ export const globalSettingsSchema = z.object({
 	secondaryDevAuthorizePath: z.string().optional(),
 	secondaryDevAuthorizationUrl: z.string().optional(),
 	secondaryDevFrontendRedirectUrl: z.string().optional(),
+	secondaryDevDebugDocumentId: z.string().optional(),
 	secondaryDevTokenPath: z.string().optional(),
 	secondaryDevTokenUrl: z.string().optional(),
 	secondaryDevScope: z.string().optional(),

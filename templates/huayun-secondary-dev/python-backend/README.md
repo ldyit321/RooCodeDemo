@@ -2,6 +2,8 @@
 
 Use this scaffold whenever CrownCAD requests should be mediated by a backend service.
 
+This is the default required output shape for newly generated HUAYUN Python backends.
+
 ## Included Layers
 
 - `backend/app/main.py`
@@ -18,5 +20,9 @@ Use this scaffold whenever CrownCAD requests should be mediated by a backend ser
     - request and response models
 - `backend/app/utils/config.py`
     - environment configuration
+- `backend/pyproject.toml`
+    - Python project manifest for dependency and run/build detection
+- `backend/.env.example`
+    - starter environment template for local backend configuration
 - `backend/tests/test_documents.py`
     - service-level test example

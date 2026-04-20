@@ -983,6 +983,11 @@
 			"description": "必填。平台会把 code 和 scope 回传到这个前端地址，前端再请求后端完成 token 换取。",
 			"placeholder": "http://localhost:8080/token"
 		},
+		"debugDocumentId": {
+			"label": "调试文档ID",
+			"description": "可选。VS Code 中执行 Run and Open 时，会把这个文档ID拼到前端 Origin 后面，用来模拟宿主软件通过 /{documentId} 方式传入文档ID。",
+			"placeholder": "输入本地调试时使用的文档ID"
+		},
 		"authorizePath": {
 			"label": "Authorize Path",
 			"description": "必填。它会与 Base URL 组合生成 OAuth2 授权地址。",

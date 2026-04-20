@@ -14,9 +14,9 @@ These rules apply specifically when using the `huayun-secondary-dev` mode.
 
 ## 2. Required Stack Policy
 
-- Frontend work may use either plain JavaScript plus HTML/CSS or Vue
-- For small or page-local features, prefer plain JavaScript plus HTML/CSS
-- For medium or large interactive frontend modules, Vue is allowed and recommended when it better fits the existing project structure
+- Frontend work must use Vue
+- Do not choose plain JavaScript plus HTML/CSS as the primary frontend delivery path in HUAYUN secondary development
+- For both small and large frontend features, keep the implementation inside the Vue frontend structure instead of splitting into a separate plain-page stack
 - Unless the user explicitly requests it, do not default to TypeScript even when using Vue
 - Backend services, scripts, middleware, and integration logic must use Python unless the user explicitly requests another stack
 - Do not default to React, Node.js backend frameworks, Java, or Go without explicit approval
@@ -47,6 +47,9 @@ These rules apply specifically when using the `huayun-secondary-dev` mode.
 - Frontend code must never store, print, hardcode, or expose `client_secret`
 - Unless the user explicitly overrides it, do not treat `state` as a required or default platform callback parameter in HUAYUN mode
 - Unless the user explicitly overrides it, token exchange must use form fields `grant_type`, `code`, `client_id`, `client_secret`, and `client_scope`, not JSON and not authorization-entry fields
+- Because HUAYUN plugins are typically embedded by iframe, generated backend sessions must support Cookie + Header dual-channel access rather than cookie-only access
+- The frontend request layer should send `credentials: include` plus a backend-issued session header such as `X-Huayun-Session` when available
+- The backend auth layer should accept the cookie channel first and fall back to the session header when third-party cookie delivery fails
 - If the Secondary Dev settings indicate Client Secret is configured, do not ask the user to paste it; generated OAuth code must read it from the configured secret/config source
 - Never hardcode, print, log, or expose the raw Client Secret; use a backend secret provider, config module, or environment binding such as `HUAYUN_CLIENT_SECRET`
 - If a generated standalone project cannot access extension settings directly, report the missing secret binding and create only a placeholder/config interface instead of requesting the raw Client Secret in chat
@@ -56,7 +59,7 @@ These rules apply specifically when using the `huayun-secondary-dev` mode.
 ## 4. Frontend Delivery Rules
 
 - Keep structure, style, and behavior clearly separated
-- Prefer maintainable JS/HTML/CSS implementations for plain pages and clear component boundaries for Vue implementations
+- Prefer clear Vue component boundaries, composables, and service layers even for relatively small frontend pages
 - Include loading, empty, and error states when the task involves async data
 - Reuse existing request wrappers, utility modules, and styling conventions when available
 - Do not mix OAuth2 bootstrap, raw request wiring, DOM rendering, and feature business logic in one file when the task exceeds a trivial demo
@@ -72,15 +75,11 @@ These rules apply specifically when using the `huayun-secondary-dev` mode.
 ## 6. Standard Architecture Contract
 
 - When creating a feature from scratch, start from the matching scaffold under `templates/huayun-secondary-dev/` instead of inventing a new layout
-- Use `plain-frontend/` for simple page-local features, `vue-frontend/` for richer interactive modules, and `python-backend/` whenever backend mediation is needed
+- Use `vue-frontend/` for frontend delivery and `python-backend/` whenever backend mediation is needed
 
 ### Frontend Layers
 
-- Plain page option:
-    - `frontend/pages/<feature>/index.html`: page structure only
-    - `frontend/pages/<feature>/styles.css`: page styles only
-    - `frontend/pages/<feature>/app.js`: page entry and UI orchestration only
-- Vue option:
+- Vue frontend:
     - `frontend/src/pages/<FeaturePage>.vue`: page-level composition
     - `frontend/src/components/`: reusable Vue components
     - `frontend/src/composables/`: reusable stateful frontend logic
@@ -100,14 +99,18 @@ These rules apply specifically when using the `huayun-secondary-dev` mode.
 - `backend/app/auth/`: OAuth2 token exchange, Client Secret handling, refresh, session or credential helpers
 - `backend/app/schemas/`: request and response models
 - `backend/app/utils/`: logging, config, shared helpers
+- `backend/pyproject.toml`: Python project manifest and dependency definition
+- `backend/.env` or `backend/.env.example`: backend runtime configuration template
 - `backend/tests/`: tests grouped by route, service, and client responsibilities
 
 ### Architecture Rules
 
 - Frontend pages may call shared API/auth modules, but should not embed OAuth2 token exchange or Client Secret logic directly in feature rendering code
 - Vue pages and components may use composables and services, but should not embed raw CrownCAD HTTP calls repeatedly inside SFCs
+- Frontend shared request layers should centralize `credentials: include` and session-header attachment instead of scattering them across Vue pages
 - Backend routes may call services, and services may call clients/auth modules, but routes should not contain upstream CrownCAD calling logic
 - Upstream CrownCAD API access should be centralized in `clients` or equivalent request modules
+- Backend auth or middleware layers should centralize cookie-plus-header session validation instead of repeating it per route
 - Shared response parsing for `code / message / data` should be centralized instead of duplicated across every call site
 - New features should plug into this structure instead of inventing a one-off layout
 

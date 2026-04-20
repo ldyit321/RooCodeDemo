@@ -75,15 +75,29 @@ import { resolveDefaultSaveUri, saveLastExportPath } from "../../utils/export"
 import { getCommand } from "../../utils/commands"
 import {
 	HUAYUN_SECONDARY_DEV_MODE_SLUG,
+	assessSecondaryDevRunReadiness,
 	createSecondaryDevBuildSteps,
+	createSecondaryDevDockerAssets,
+	createSecondaryDevPrepareSteps,
 	createSecondaryDevRunSteps,
 	discoverSecondaryDevWorkspace,
+	resolveSecondaryDevBackendPreviewCandidates,
+	resolveSecondaryDevDockerPortConfig,
+	resolveSecondaryDevBackendInstallCommand,
 	resolveSecondaryDevPackagingEntries,
 } from "./secondaryDevWorkflow"
 
 const ALLOWED_VSCODE_SETTINGS = new Set(["terminal.integrated.inheritEnv"])
-const FRONTEND_PREVIEW_PORT_CANDIDATES = [5173, 3000, 4173, 8080, 8000, 4200, 4321]
+const LOCAL_PREVIEW_HOST_CANDIDATES = ["localhost", "127.0.0.1", "[::1]"]
 const FRONTEND_PREVIEW_DIRECTORY_CANDIDATES = ["", "frontend", "client", "web", "app", "apps/web"]
+const SECONDARY_DEV_BACKEND_SOFT_WAIT_MS = 8_000
+const SECONDARY_DEV_BACKEND_HARD_WAIT_MS = 20_000
+const SECONDARY_DEV_TERMINAL_NAMES = {
+	frontend: "HUAYUN Frontend",
+	backend: "HUAYUN Backend",
+	package: "HUAYUN Package",
+	docker: "HUAYUN Docker",
+} as const
 const execAsync = promisify(execCallback)
 const execFileAsync = promisify(execFileCallback)
 
@@ -116,19 +130,23 @@ export const webviewMessageHandler = async (
 		return provider.getCurrentTask()?.cwd || provider.cwd
 	}
 
-	const detectRunningFrontendPreviewUrl = async (): Promise<string | undefined> => {
-		for (const port of FRONTEND_PREVIEW_PORT_CANDIDATES) {
-			const url = `http://127.0.0.1:${port}`
-			try {
-				const response = await fetch(url, {
-					method: "GET",
-					signal: AbortSignal.timeout(500),
-				})
-				if (response.ok) {
-					return url
+	const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+	const detectRunningLocalUrl = async (ports: number[]): Promise<string | undefined> => {
+		for (const port of ports) {
+			for (const host of LOCAL_PREVIEW_HOST_CANDIDATES) {
+				const url = `http://${host}:${port}`
+				try {
+					const response = await fetch(url, {
+						method: "GET",
+						signal: AbortSignal.timeout(500),
+					})
+					if (response.ok) {
+						return url
+					}
+				} catch {
+					// Ignore closed ports and timeouts.
 				}
-			} catch {
-				// Ignore closed ports and timeouts.
 			}
 		}
 
@@ -213,25 +231,264 @@ export const webviewMessageHandler = async (
 		return commandList
 	}
 
-	const openFrontendPreviewForCwd = async (cwd: string): Promise<boolean> => {
-		const previewUrl = await detectRunningFrontendPreviewUrl()
+	const openUriInVsCode = async (uri: string | vscode.Uri) => {
+		const targetUri = typeof uri === "string" ? vscode.Uri.parse(uri) : uri
+		const uriString = targetUri.toString()
+		try {
+			await vscode.commands.executeCommand("simpleBrowser.show", uriString)
+		} catch {
+			await vscode.env.openExternal(targetUri)
+		}
+	}
+
+	const getConfiguredSecondaryDevFrontendPreviewTarget = async (includeDebugDocumentPath = false) => {
+		try {
+			const state = await provider.getState()
+			const configuredRedirectUrl = state.secondaryDevFrontendRedirectUrl?.trim()
+			if (!configuredRedirectUrl) {
+				return undefined
+			}
+
+			const parsedUrl = vscode.Uri.parse(configuredRedirectUrl)
+			const origin = `${parsedUrl.scheme}://${parsedUrl.authority}`
+			if (!origin) {
+				return undefined
+			}
+
+			const previewUrl = `${origin}/`
+			const debugDocumentId = state.secondaryDevDebugDocumentId?.trim()
+			const debugPreviewUrl =
+				includeDebugDocumentPath && debugDocumentId
+					? `${origin}/${encodeURIComponent(debugDocumentId)}`
+					: undefined
+
+			return {
+				previewUrl,
+				debugPreviewUrl,
+			}
+		} catch (error) {
+			provider.log(
+				`Failed to resolve configured secondary dev preview target: ${JSON.stringify(
+					error,
+					Object.getOwnPropertyNames(error),
+					2,
+				)}`,
+			)
+			return undefined
+		}
+	}
+
+	const detectReachableUrl = async (candidates: string[]): Promise<string | undefined> => {
+		for (const url of candidates) {
+			try {
+				const response = await fetch(url, {
+					method: "GET",
+					signal: AbortSignal.timeout(500),
+				})
+				if (response.ok) {
+					return url
+				}
+			} catch {
+				// Ignore closed ports and timeouts.
+			}
+		}
+
+		return undefined
+	}
+
+	const extractPreviewUrlFromTerminalOutput = (output: string): string | undefined => {
+		const localMatch = output.match(/Local:\s+(https?:\/\/[^\s]+)/i)
+		if (localMatch?.[1]) {
+			return localMatch[1]
+		}
+
+		const genericMatch = output.match(/(https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):\d+[^\s]*)/i)
+		if (genericMatch?.[1]) {
+			return genericMatch[1]
+		}
+
+		return undefined
+	}
+
+	const openFrontendPreviewForCwd = async (
+		cwd: string,
+		allowFileFallback = true,
+		includeDebugDocumentPath = false,
+	): Promise<boolean> => {
+		const previewUrl =
+			(await detectConfiguredFrontendPreviewUrl(includeDebugDocumentPath)) ??
+			(await detectPreviewUrlFromTerminal("frontend"))
 		if (previewUrl) {
-			await vscode.env.openExternal(vscode.Uri.parse(previewUrl))
+			await openUriInVsCode(previewUrl)
 			return true
 		}
 
-		const htmlEntry = await findFrontendHtmlEntry(cwd)
+		const htmlEntry = allowFileFallback ? await findFrontendHtmlEntry(cwd) : undefined
 		if (htmlEntry) {
 			const fileUri = vscode.Uri.file(htmlEntry)
-			try {
-				await vscode.commands.executeCommand("simpleBrowser.show", fileUri.toString())
-			} catch {
-				await vscode.env.openExternal(fileUri)
-			}
+			await openUriInVsCode(fileUri)
 			return true
 		}
 
 		return false
+	}
+
+	const waitForRunningFrontendPreviewUrl = async (
+		timeoutMs = 15_000,
+		includeDebugDocumentPath = false,
+	): Promise<string | undefined> => {
+		const start = Date.now()
+		while (Date.now() - start < timeoutMs) {
+			const previewUrl =
+				(await detectConfiguredFrontendPreviewUrl(includeDebugDocumentPath)) ??
+				(await detectPreviewUrlFromTerminal("frontend"))
+			if (previewUrl) {
+				return previewUrl
+			}
+			await sleep(500)
+		}
+
+		return undefined
+	}
+
+	const waitForRunningBackendPreviewUrl = async (
+		candidates: string[],
+		timeoutMs = 20_000,
+	): Promise<string | undefined> => {
+		const start = Date.now()
+		while (Date.now() - start < timeoutMs) {
+			const previewUrl = await detectReachableUrl(candidates)
+			if (previewUrl) {
+				return previewUrl
+			}
+			await sleep(500)
+		}
+
+		return undefined
+	}
+
+	const detectConfiguredFrontendPreviewUrl = async (
+		includeDebugDocumentPath = false,
+	): Promise<string | undefined> => {
+		const previewTarget = await getConfiguredSecondaryDevFrontendPreviewTarget(includeDebugDocumentPath)
+		if (!previewTarget) {
+			return undefined
+		}
+
+		const reachableOrigin = await detectReachableUrl([previewTarget.previewUrl])
+		if (!reachableOrigin) {
+			return undefined
+		}
+
+		return previewTarget.debugPreviewUrl ?? reachableOrigin
+	}
+
+	const buildSequentialTerminalCommand = (commands: string[]): string => {
+		if (commands.length <= 1) {
+			return commands[0] ?? ""
+		}
+
+		if (process.platform === "win32") {
+			const [first, ...rest] = commands
+			let script = `Write-Host "[HUAYUN] Installing dependencies..."; ${first}`
+			for (const command of rest) {
+				script += `; if ($?) { Write-Host "[HUAYUN] Starting service..."; ${command} }`
+			}
+			return script
+		}
+
+		const [first, ...rest] = commands
+		let script = `echo "[HUAYUN] Installing dependencies..." && ${first}`
+		for (const command of rest) {
+			script += ` && echo "[HUAYUN] Starting service..." && ${command}`
+		}
+		return script
+	}
+
+	const emitPackageTerminalCommand = (
+		terminal: vscode.Terminal,
+		cwd: string,
+		stage: "frontend" | "backend" | "docker",
+		message: string,
+		command: string,
+	) => {
+		const stageLabel = `[HUAYUN][${stage.toUpperCase()}]`
+		if (process.platform === "win32") {
+			const escapedCwd = cwd.replace(/'/g, "''")
+			terminal.sendText(`Set-Location -LiteralPath '${escapedCwd}'`, true)
+			terminal.sendText(`Write-Host "${stageLabel} Working directory: ${cwd}"`, true)
+			terminal.sendText(`Write-Host "${stageLabel} ${message}"`, true)
+		} else {
+			const escapedCwd = cwd.replace(/(["\\$`])/g, "\\$1")
+			terminal.sendText(`cd "${escapedCwd}"`, true)
+			terminal.sendText(`echo "${stageLabel} Working directory: ${cwd}"`, true)
+			terminal.sendText(`echo "${stageLabel} ${message}"`, true)
+		}
+		terminal.sendText(command, true)
+	}
+
+	const emitSecondaryDevTerminalStatus = (
+		terminal: vscode.Terminal,
+		cwd: string,
+		stage: "frontend" | "backend" | "docker",
+		message: string,
+		command?: string,
+	) => {
+		const stageLabel = `[HUAYUN][${stage.toUpperCase()}]`
+		if (process.platform === "win32") {
+			const escapedCwd = cwd.replace(/'/g, "''")
+			terminal.sendText(`Set-Location -LiteralPath '${escapedCwd}'`, true)
+			terminal.sendText(`Write-Host "${stageLabel} Working directory: ${cwd}"`, true)
+			terminal.sendText(`Write-Host "${stageLabel} ${message}"`, true)
+			if (command) {
+				terminal.sendText(`Write-Host "${stageLabel} Command: ${command}"`, true)
+			}
+			return
+		}
+
+		const escapedCwd = cwd.replace(/(["\\$`])/g, "\\$1")
+		terminal.sendText(`cd "${escapedCwd}"`, true)
+		terminal.sendText(`echo "${stageLabel} Working directory: ${cwd}"`, true)
+		terminal.sendText(`echo "${stageLabel} ${message}"`, true)
+		if (command) {
+			terminal.sendText(`echo "${stageLabel} Command: ${command}"`, true)
+		}
+	}
+
+	const findSecondaryDevTerminal = (label: "frontend" | "backend") =>
+		vscode.window.terminals.find((terminal) => terminal.name === SECONDARY_DEV_TERMINAL_NAMES[label])
+
+	const detectPreviewUrlFromTerminal = async (label: "frontend" | "backend"): Promise<string | undefined> => {
+		const terminal = findSecondaryDevTerminal(label)
+		if (!terminal) {
+			return undefined
+		}
+
+		try {
+			terminal.show(true)
+			const output = await Terminal.getTerminalContents()
+			return extractPreviewUrlFromTerminalOutput(output)
+		} catch (error) {
+			provider.log(
+				`Failed to extract preview url from ${label} terminal output: ${JSON.stringify(
+					error,
+					Object.getOwnPropertyNames(error),
+					2,
+				)}`,
+			)
+			return undefined
+		}
+	}
+
+	const restartManagedSecondaryDevTerminalIfNeeded = async (label: "frontend" | "backend") => {
+		const terminal = findSecondaryDevTerminal(label)
+		if (!terminal) {
+			return false
+		}
+
+		terminal.dispose()
+		await sleep(350)
+		return true
 	}
 
 	const runShellCommand = async (command: string, cwd: string) => {
@@ -239,6 +496,186 @@ export const webviewMessageHandler = async (
 			cwd,
 			maxBuffer: 10 * 1024 * 1024,
 		})
+	}
+
+	const getBackendDependencyPrepareCommands = async (
+		targets: Awaited<ReturnType<typeof discoverSecondaryDevWorkspace>>,
+	) => {
+		const commands: string[] = []
+		if (!targets.backend) {
+			return commands
+		}
+
+		const backendInstallCommand = await resolveSecondaryDevBackendInstallCommand(targets.backend)
+		if (!backendInstallCommand) {
+			return commands
+		}
+
+		commands.push(backendInstallCommand)
+		return commands
+	}
+
+	const getBackendBuildDependencyPrepareCommands = async (
+		targets: Awaited<ReturnType<typeof discoverSecondaryDevWorkspace>>,
+	) => {
+		const commands: string[] = []
+		if (!targets.backend?.buildCommand) {
+			return commands
+		}
+
+		if (targets.backend.buildCommand.includes("python -m build")) {
+			commands.push("python -m pip install build")
+		}
+
+		return commands
+	}
+
+	const secondaryDevDockerCopyFilter = (sourcePath: string) => {
+		const basename = path.basename(sourcePath)
+		return ![
+			"node_modules",
+			".git",
+			".turbo",
+			".next",
+			".nuxt",
+			"dist",
+			"build",
+			".output",
+			"__pycache__",
+			".pytest_cache",
+			".venv",
+			"venv",
+		].includes(basename)
+	}
+
+	const writeSecondaryDevDockerBundle = async (
+		stagingDir: string,
+		targets: Awaited<ReturnType<typeof discoverSecondaryDevWorkspace>>,
+	) => {
+		const dockerRoot = path.join(stagingDir, "docker")
+		await fs.mkdir(dockerRoot, { recursive: true })
+
+		if (targets.frontend) {
+			await fs.cp(targets.frontend.dir, path.join(dockerRoot, "frontend-source"), {
+				recursive: true,
+				force: true,
+				filter: secondaryDevDockerCopyFilter,
+			})
+		}
+
+		if (targets.backend) {
+			await fs.cp(targets.backend.dir, path.join(dockerRoot, "backend-source"), {
+				recursive: true,
+				force: true,
+				filter: secondaryDevDockerCopyFilter,
+			})
+		}
+
+		const state = await provider.getState()
+		const dockerPortConfig = await resolveSecondaryDevDockerPortConfig(targets, {
+			frontendRedirectUrl: state.secondaryDevFrontendRedirectUrl,
+			backendBaseUrl: state.secondaryDevBaseUrl,
+		})
+
+		for (const asset of createSecondaryDevDockerAssets(targets, dockerPortConfig)) {
+			const assetPath = path.join(stagingDir, asset.relativePath)
+			await fs.mkdir(path.dirname(assetPath), { recursive: true })
+			await fs.writeFile(assetPath, asset.content, "utf8")
+		}
+
+		return {
+			dockerRoot,
+			dockerPortConfig,
+		}
+	}
+
+	const isDockerCliAvailable = async (cwd: string) => {
+		try {
+			await runShellCommand("docker --version", cwd)
+			return true
+		} catch {
+			return false
+		}
+	}
+
+	const resolveLatestSecondaryDevDockerBundle = async (cwd: string) => {
+		const packageRoot = path.join(cwd, ".huayun-packages")
+		try {
+			const entries = await fs.readdir(packageRoot, { withFileTypes: true })
+			const packageDirectories = await Promise.all(
+				entries
+					.filter((entry) => entry.isDirectory())
+					.map(async (entry) => {
+						const packageDir = path.join(packageRoot, entry.name)
+						const stats = await fs.stat(packageDir)
+						return {
+							name: entry.name,
+							packageDir,
+							mtimeMs: stats.mtimeMs,
+						}
+					}),
+			)
+
+			packageDirectories.sort((left, right) => right.mtimeMs - left.mtimeMs)
+
+			for (const directory of packageDirectories) {
+				const dockerDir = path.join(directory.packageDir, "docker")
+				const composeFile = path.join(dockerDir, "docker-compose.yml")
+				if (await fileExistsAtPath(composeFile)) {
+					return {
+						packageDir: directory.packageDir,
+						packageName: directory.name,
+						dockerDir,
+						composeFile,
+					}
+				}
+			}
+		} catch {
+			return undefined
+		}
+
+		return undefined
+	}
+
+	const buildDockerComposeUpCommand = () => "docker compose up --build -d"
+
+	const readSecondaryDevDockerPortSummary = async (dockerDir: string) => {
+		const composeFile = path.join(dockerDir, "docker-compose.yml")
+		try {
+			const composeContent = await fs.readFile(composeFile, "utf8")
+			const frontendMatch = composeContent.match(/frontend:[\s\S]*?-\s*"(\d+):80"/)
+			const backendMatch = composeContent.match(/backend:[\s\S]*?-\s*"(\d+):(\d+)"/)
+
+			return {
+				frontendHostPort: frontendMatch?.[1] ? Number(frontendMatch[1]) : undefined,
+				backendHostPort: backendMatch?.[1] ? Number(backendMatch[1]) : undefined,
+				backendContainerPort: backendMatch?.[2] ? Number(backendMatch[2]) : undefined,
+			}
+		} catch {
+			return {}
+		}
+	}
+
+	const buildSecondaryDevDockerImages = async (
+		dockerRoot: string,
+		targets: Awaited<ReturnType<typeof discoverSecondaryDevWorkspace>>,
+		tagSuffix: string,
+	) => {
+		const imageTags: string[] = []
+
+		if (targets.frontend) {
+			const tag = `huayun-secondary-dev-frontend:${tagSuffix}`
+			await runShellCommand(`docker build -t ${tag} "${path.join(dockerRoot, "frontend-source")}"`, dockerRoot)
+			imageTags.push(tag)
+		}
+
+		if (targets.backend) {
+			const tag = `huayun-secondary-dev-backend:${tagSuffix}`
+			await runShellCommand(`docker build -t ${tag} "${path.join(dockerRoot, "backend-source")}"`, dockerRoot)
+			imageTags.push(tag)
+		}
+
+		return imageTags
 	}
 
 	const createSecondaryDevArchive = async (sourceDir: string, archivePath: string) => {
@@ -1415,21 +1852,113 @@ export const webviewMessageHandler = async (
 			}
 
 			const targets = await discoverSecondaryDevWorkspace(cwd)
+			const state = await provider.getState()
+			const readiness = await assessSecondaryDevRunReadiness(cwd, targets)
+			if (!readiness.canRun) {
+				vscode.window.showWarningMessage(
+					readiness.blockingIssues[0]?.message ?? "Secondary development run is not ready yet.",
+				)
+				break
+			}
+
 			const runSteps = createSecondaryDevRunSteps(targets)
+			const prepareSteps = await createSecondaryDevPrepareSteps(targets)
+			const backendPrepareCommands = await getBackendDependencyPrepareCommands(targets)
+			const existingFrontendPreviewUrl =
+				(await detectConfiguredFrontendPreviewUrl(true)) ?? (await detectPreviewUrlFromTerminal("frontend"))
+			const backendPreviewCandidates = await resolveSecondaryDevBackendPreviewCandidates(targets, {
+				backendBaseUrl: state.secondaryDevBaseUrl,
+			})
+			const existingBackendPreviewUrl = await detectReachableUrl(backendPreviewCandidates)
+			const runStepsToExecute: typeof runSteps = []
+			const executionNotes: string[] = []
+			const prepareStepsByLabel = new Map<"frontend" | "backend", string[]>()
+
+			for (const step of prepareSteps) {
+				const label = step.label === "frontend-install" ? "frontend" : "backend"
+				const current = prepareStepsByLabel.get(label) ?? []
+				current.push(step.command)
+				prepareStepsByLabel.set(label, current)
+			}
+
+			if (backendPrepareCommands.length > 0) {
+				prepareStepsByLabel.set("backend", [
+					...(prepareStepsByLabel.get("backend") ?? []),
+					...backendPrepareCommands,
+				])
+			}
 
 			for (const step of runSteps) {
+				const label = step.label === "frontend" ? "frontend" : "backend"
+				const restartedManagedTerminal = await restartManagedSecondaryDevTerminalIfNeeded(label)
+				if (restartedManagedTerminal) {
+					runStepsToExecute.push(step)
+					executionNotes.push(`restarted managed ${label}`)
+					continue
+				}
+
+				const existingServiceUrl = label === "frontend" ? existingFrontendPreviewUrl : existingBackendPreviewUrl
+				if (existingServiceUrl) {
+					executionNotes.push(`reused existing ${label} service at ${existingServiceUrl}`)
+					continue
+				}
+
+				runStepsToExecute.push(step)
+			}
+
+			for (const step of runStepsToExecute) {
+				const label = step.label === "frontend" ? "frontend" : "backend"
+				const commands = [...(prepareStepsByLabel.get(label) ?? []), step.command]
 				const terminal = vscode.window.createTerminal({
 					cwd: step.cwd,
-					name: `HUAYUN ${step.label === "frontend" ? "Frontend" : "Backend"}`,
+					name: SECONDARY_DEV_TERMINAL_NAMES[label],
 				})
 				terminal.show(true)
-				terminal.sendText(step.command, true)
+				terminal.sendText(buildSequentialTerminalCommand(commands), true)
+				if (commands.length > 1) {
+					executionNotes.push(`prepared ${step.label} dependencies`)
+				}
+				executionNotes.push(`started ${step.label} -> ${step.command}`)
+			}
+
+			if (runSteps.some((step) => step.label === "backend")) {
+				const hasFrontendRunStep = runSteps.some((step) => step.label === "frontend")
+				const backendWaitTimeoutMs = hasFrontendRunStep
+					? SECONDARY_DEV_BACKEND_SOFT_WAIT_MS
+					: SECONDARY_DEV_BACKEND_HARD_WAIT_MS
+				const backendPreviewUrl = runStepsToExecute.some((step) => step.label === "backend")
+					? await waitForRunningBackendPreviewUrl(backendPreviewCandidates, backendWaitTimeoutMs)
+					: existingBackendPreviewUrl
+
+				if (!backendPreviewUrl) {
+					if (hasFrontendRunStep) {
+						vscode.window.showWarningMessage(
+							"Backend service is still starting. The frontend preview will open first, and requests may fail until the backend becomes ready.",
+						)
+					} else {
+						vscode.window.showWarningMessage(
+							"Backend service did not become reachable in time. Check the HUAYUN Backend terminal output before opening the frontend preview again.",
+						)
+						break
+					}
+				}
 			}
 
 			if (runSteps.some((step) => step.label === "frontend")) {
-				setTimeout(() => {
-					void openFrontendPreviewForCwd(cwd)
-				}, 1500)
+				const previewUrl = runStepsToExecute.some((step) => step.label === "frontend")
+					? await waitForRunningFrontendPreviewUrl(
+							prepareStepsByLabel.has("frontend") ? 45_000 : 15_000,
+							true,
+						)
+					: existingFrontendPreviewUrl
+
+				if (previewUrl) {
+					await openUriInVsCode(previewUrl)
+				} else {
+					vscode.window.showWarningMessage(
+						"Frontend dev server did not become reachable in time. Check the HUAYUN Frontend terminal output before opening preview again.",
+					)
+				}
 			} else if (runSteps.length === 0) {
 				const opened = await openFrontendPreviewForCwd(cwd)
 				if (!opened) {
@@ -1440,10 +1969,12 @@ export const webviewMessageHandler = async (
 				}
 			}
 
-			if (runSteps.length > 0) {
-				vscode.window.showInformationMessage(
-					`Started secondary development run tasks: ${runSteps.map((step) => `${step.label} -> ${step.command}`).join(" | ")}`,
-				)
+			if (executionNotes.length > 0) {
+				vscode.window.showInformationMessage(`Secondary development run: ${executionNotes.join(" | ")}`)
+			}
+
+			if (readiness.warnings.length > 0) {
+				vscode.window.showWarningMessage(readiness.warnings[0].message)
 			}
 			break
 		}
@@ -1459,14 +1990,75 @@ export const webviewMessageHandler = async (
 			}
 
 			const targets = await discoverSecondaryDevWorkspace(cwd)
+			const prepareSteps = await createSecondaryDevPrepareSteps(targets)
+			const backendPrepareCommands = await getBackendDependencyPrepareCommands(targets)
+			const backendBuildPrepareCommands = await getBackendBuildDependencyPrepareCommands(targets)
 			const buildSteps = createSecondaryDevBuildSteps(targets)
+			const packageTerminal = vscode.window.createTerminal({
+				cwd,
+				name: SECONDARY_DEV_TERMINAL_NAMES.package,
+			})
+			packageTerminal.show(true)
+			const packageExecutionNotes: string[] = []
+			let activePackageStage = "initialization"
 
 			try {
-				for (const step of buildSteps) {
+				for (const step of prepareSteps) {
+					activePackageStage = "frontend dependencies"
+					emitPackageTerminalCommand(
+						packageTerminal,
+						step.cwd,
+						"frontend",
+						"Installing frontend dependencies...",
+						step.command,
+					)
 					await runShellCommand(step.command, step.cwd)
+					packageExecutionNotes.push("frontend dependencies ready")
+				}
+				if (targets.backend) {
+					for (const command of backendPrepareCommands) {
+						activePackageStage = "backend runtime dependencies"
+						emitPackageTerminalCommand(
+							packageTerminal,
+							targets.backend.dir,
+							"backend",
+							"Installing backend runtime dependencies...",
+							command,
+						)
+						await runShellCommand(command, targets.backend.dir)
+						packageExecutionNotes.push("backend runtime dependencies ready")
+					}
+					for (const command of backendBuildPrepareCommands) {
+						activePackageStage = "backend build dependencies"
+						emitPackageTerminalCommand(
+							packageTerminal,
+							targets.backend.dir,
+							"backend",
+							"Installing backend build dependencies...",
+							command,
+						)
+						await runShellCommand(command, targets.backend.dir)
+						packageExecutionNotes.push("backend build dependencies ready")
+					}
+				}
+				for (const step of buildSteps) {
+					activePackageStage = step.label === "frontend-build" ? "frontend build" : "backend build"
+					emitPackageTerminalCommand(
+						packageTerminal,
+						step.cwd,
+						step.label === "frontend-build" ? "frontend" : "backend",
+						step.label === "frontend-build"
+							? "Building frontend package..."
+							: "Building backend package...",
+						step.command,
+					)
+					await runShellCommand(step.command, step.cwd)
+					packageExecutionNotes.push(`${step.label} finished`)
 				}
 			} catch (error) {
-				vscode.window.showErrorMessage(`Secondary development build failed: ${formatCommandFailure(error)}`)
+				vscode.window.showErrorMessage(
+					`Secondary development build failed during ${activePackageStage}: ${formatCommandFailure(error)}`,
+				)
 				break
 			}
 
@@ -1491,6 +2083,27 @@ export const webviewMessageHandler = async (
 				})
 			}
 
+			const { dockerRoot, dockerPortConfig } = await writeSecondaryDevDockerBundle(stagingDir, targets)
+			const dockerAvailable = await isDockerCliAvailable(cwd)
+			let dockerImageTags: string[] = []
+			let dockerBuildWarning: string | undefined
+
+			if (dockerAvailable) {
+				try {
+					activePackageStage = "docker image build"
+					if (process.platform === "win32") {
+						packageTerminal.sendText(`Write-Host "[HUAYUN][DOCKER] Building Docker images..."`, true)
+					} else {
+						packageTerminal.sendText(`echo "[HUAYUN][DOCKER] Building Docker images..."`, true)
+					}
+					dockerImageTags = await buildSecondaryDevDockerImages(dockerRoot, targets, timestamp.toLowerCase())
+					packageExecutionNotes.push("docker images built")
+				} catch (error) {
+					dockerBuildWarning = `Docker images were not built automatically: ${formatCommandFailure(error)}`
+					provider.log(dockerBuildWarning)
+				}
+			}
+
 			const manifestPath = path.join(stagingDir, "manifest.json")
 			await safeWriteJson(manifestPath, {
 				createdAt: new Date().toISOString(),
@@ -1500,6 +2113,12 @@ export const webviewMessageHandler = async (
 					source: path.relative(cwd, entry.source),
 					destination: entry.destination,
 				})),
+				docker: {
+					dockerRoot: path.relative(stagingDir, dockerRoot),
+					dockerAvailable,
+					imageTags: dockerImageTags,
+					ports: dockerPortConfig,
+				},
 			})
 
 			let archivePath: string | undefined
@@ -1514,14 +2133,98 @@ export const webviewMessageHandler = async (
 			}
 
 			const targetPath = archivePath ?? stagingDir
+			const packageSummary = archivePath
+				? `Secondary development package created at ${archivePath}`
+				: `Secondary development package folder created at ${stagingDir}`
+			const dockerSummary =
+				dockerImageTags.length > 0
+					? ` Docker images built: ${dockerImageTags.join(", ")}.`
+					: dockerAvailable
+						? " Docker-ready bundle generated, but image build did not complete."
+						: " Docker CLI was not detected, so a Docker-ready bundle was generated instead."
+			const portSummary = ` Frontend port: ${dockerPortConfig.frontendHostPort}. Backend port: ${dockerPortConfig.backendHostPort}.`
 			const choice = await vscode.window.showInformationMessage(
-				archivePath
-					? `Secondary development package created at ${archivePath}`
-					: `Secondary development package folder created at ${stagingDir}`,
+				`${packageSummary}.${dockerSummary}${portSummary}`,
 				"Reveal in Explorer",
 			)
+			if (packageExecutionNotes.length > 0) {
+				vscode.window.showInformationMessage(
+					`Secondary development package: ${packageExecutionNotes.join(" | ")}`,
+				)
+			}
 			if (choice) {
 				await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(targetPath))
+			}
+			if (dockerBuildWarning) {
+				vscode.window.showWarningMessage(dockerBuildWarning)
+			}
+			break
+		}
+		case "startSecondaryDevDocker": {
+			if (!(await ensureHuayunSecondaryDevMode())) {
+				break
+			}
+
+			const cwd = getCurrentCwd()
+			if (!cwd) {
+				vscode.window.showErrorMessage("No workspace path available for Docker startup.")
+				break
+			}
+
+			const targets = await discoverSecondaryDevWorkspace(cwd)
+			if (!targets.frontend && !targets.backend) {
+				vscode.window.showWarningMessage(
+					"No secondary development frontend or backend structure was detected yet.",
+				)
+				break
+			}
+
+			const dockerBundle = await resolveLatestSecondaryDevDockerBundle(cwd)
+			if (!dockerBundle) {
+				vscode.window.showWarningMessage(
+					"No packaged Docker bundle was found. Run Package first to generate .huayun-packages/<latest>/docker.",
+				)
+				break
+			}
+
+			const dockerAvailable = await isDockerCliAvailable(dockerBundle.dockerDir)
+			if (!dockerAvailable) {
+				vscode.window.showErrorMessage(
+					"Docker CLI was not detected. Install Docker Desktop or make docker available on PATH first.",
+				)
+				break
+			}
+
+			const dockerCommand = buildDockerComposeUpCommand()
+			const dockerTerminal = vscode.window.createTerminal({
+				cwd: dockerBundle.dockerDir,
+				name: SECONDARY_DEV_TERMINAL_NAMES.docker,
+			})
+			dockerTerminal.show(true)
+			emitSecondaryDevTerminalStatus(
+				dockerTerminal,
+				dockerBundle.dockerDir,
+				"docker",
+				`Starting Docker services from ${dockerBundle.packageName}...`,
+				dockerCommand,
+			)
+
+			try {
+				await runShellCommand(dockerCommand, dockerBundle.dockerDir)
+				const dockerPortSummary = await readSecondaryDevDockerPortSummary(dockerBundle.dockerDir)
+				const frontendUrl = dockerPortSummary.frontendHostPort
+					? `http://localhost:${dockerPortSummary.frontendHostPort}`
+					: "frontend port unavailable"
+				const backendUrl = dockerPortSummary.backendHostPort
+					? `http://localhost:${dockerPortSummary.backendHostPort}`
+					: "backend port unavailable"
+				vscode.window.showInformationMessage(
+					`Docker services started from ${dockerBundle.packageName}. Frontend: ${frontendUrl} | Backend: ${backendUrl}`,
+				)
+			} catch (error) {
+				vscode.window.showErrorMessage(
+					`Secondary development Docker start failed: ${formatCommandFailure(error)}. Check the HUAYUN Docker terminal.`,
+				)
 			}
 			break
 		}

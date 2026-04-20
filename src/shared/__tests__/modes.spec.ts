@@ -639,9 +639,9 @@ describe("FileRestrictionError", () => {
 			})
 			expect(huayunMode?.customInstructions).toContain("OAuth2 authentication is a mandatory first phase")
 			expect(huayunMode?.customInstructions).toContain("Follow a stable layered architecture")
-			expect(huayunMode?.customInstructions).toContain("prefer Vue for frontend implementation by default")
+			expect(huayunMode?.customInstructions).toContain("frontend implementation must use Vue")
 			expect(huayunMode?.customInstructions).toContain(
-				"use plain JavaScript plus HTML/CSS only when the page is extremely small",
+				"do not choose plain JavaScript plus HTML/CSS as the primary frontend delivery path",
 			)
 			expect(huayunMode?.customInstructions).toContain(
 				"backend services, scripts, and server-side integrations must use Python",
@@ -656,6 +656,12 @@ describe("FileRestrictionError", () => {
 			expect(huayunMode?.customInstructions).toContain("client_secret")
 			expect(huayunMode?.customInstructions).toContain("client_scope")
 			expect(huayunMode?.customInstructions).toContain("map callback `scope`")
+			expect(huayunMode?.customInstructions).toContain("Cookie + Header dual-channel strategy")
+			expect(huayunMode?.customInstructions).toContain("`X-Huayun-Session`")
+			expect(huayunMode?.customInstructions).toContain("`credentials: include`")
+			expect(huayunMode?.customInstructions).toContain("`backend/app/main.py`")
+			expect(huayunMode?.customInstructions).toContain("`backend/pyproject.toml`")
+			expect(huayunMode?.customInstructions).toContain("`backend/.env` or `backend/.env.example`")
 			expect(huayunMode?.customInstructions).toContain("do not ask the user to paste it in chat")
 			expect(huayunMode?.customInstructions).toContain("HUAYUN_CLIENT_SECRET")
 			expect(huayunMode?.customInstructions).toContain("never hardcode, print, log, or expose")

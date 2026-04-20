@@ -29,6 +29,10 @@ Do not skip directly from user wording to business-code lookup when the task is 
     - `http://10.0.100.54:9000/crowncad-api/openapi/api-docs`
 - Latest API explorer provided by the user:
     - `http://10.0.100.54:9000/crowncad-api/explorer`
+- Current response wrapper reference:
+    - `30-common-response-contracts.md`
+- Current response entity catalog:
+    - `31-response-entity-catalog.md`
 
 ## Current Known Server Base
 
@@ -145,6 +149,7 @@ Known `documentAttributeManifest` contract:
 ## Engineering Rules
 
 - Treat the latest OpenAPI snapshot as the primary source of truth for interface names, methods, and parameter shapes.
+- For response wrapper shape, response entity names, and payload field planning, consult `30-common-response-contracts.md` and `31-response-entity-catalog.md` before inventing ad hoc DTOs.
 - Reuse these endpoint names exactly when generating frontend request wrappers or backend Python proxy code.
 - Prefer module-specific rules for document, folder, drawing, BOM, topology, structure, and query work.
 - Do not invent new CrownCAD API paths when the requested feature can be built on top of the known interfaces.

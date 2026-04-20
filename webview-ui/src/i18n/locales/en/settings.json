@@ -189,6 +189,11 @@
 			"description": "Required. The platform redirects code and scope to this frontend URL; the frontend then calls the backend to exchange the token.",
 			"placeholder": "http://localhost:8080/token"
 		},
+		"debugDocumentId": {
+			"label": "Debug Document ID",
+			"description": "Optional. During VS Code Run and Open, this document ID will be appended to the frontend origin so local debugging can simulate the host application's /{documentId} entry path.",
+			"placeholder": "Enter a document ID for local debugging"
+		},
 		"authorizePath": {
 			"label": "Authorize Path",
 			"description": "Required. This path is combined with Base URL to generate the OAuth2 authorization address.",

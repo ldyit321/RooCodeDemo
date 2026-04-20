@@ -357,6 +357,8 @@ describe("TaskActions", () => {
 				publicSharingEnabled: true,
 				cloudIsAuthenticated: true,
 				mode: "huayun-secondary-dev",
+				secondaryDevRunAndOpenAvailable: true,
+				secondaryDevDockerStartAvailable: true,
 				cloudUserInfo: {
 					organizationName: "Test Organization",
 				},
@@ -364,23 +366,27 @@ describe("TaskActions", () => {
 
 			render(<TaskActions item={mockItem} buttonsDisabled={false} />)
 
-			expect(screen.getByLabelText("Run secondary dev workspace")).toBeInTheDocument()
+			expect(screen.getByLabelText("Run and open secondary dev workspace")).toBeInTheDocument()
 			expect(screen.getByLabelText("Package secondary dev workspace")).toBeInTheDocument()
+			expect(screen.getByLabelText("Start Docker")).toBeInTheDocument()
 		})
 
 		it("does not show run and package buttons outside huayun secondary dev mode", () => {
 			render(<TaskActions item={mockItem} buttonsDisabled={false} />)
 
-			expect(screen.queryByLabelText("Run secondary dev workspace")).not.toBeInTheDocument()
+			expect(screen.queryByLabelText("Run and open secondary dev workspace")).not.toBeInTheDocument()
 			expect(screen.queryByLabelText("Package secondary dev workspace")).not.toBeInTheDocument()
+			expect(screen.queryByLabelText("Start Docker")).not.toBeInTheDocument()
 		})
 
-		it("sends secondary dev action messages when run and package buttons are clicked", () => {
+		it("still shows run button in huayun mode when targets are not yet available", () => {
 			mockUseExtensionState.mockReturnValue({
 				sharingEnabled: true,
 				publicSharingEnabled: true,
 				cloudIsAuthenticated: true,
 				mode: "huayun-secondary-dev",
+				secondaryDevRunAndOpenAvailable: false,
+				secondaryDevDockerStartAvailable: false,
 				cloudUserInfo: {
 					organizationName: "Test Organization",
 				},
@@ -388,14 +394,38 @@ describe("TaskActions", () => {
 
 			render(<TaskActions item={mockItem} buttonsDisabled={false} />)
 
-			fireEvent.click(screen.getByLabelText("Run secondary dev workspace"))
+			expect(screen.getByLabelText("Run and open secondary dev workspace")).toBeInTheDocument()
+			expect(screen.getByLabelText("Package secondary dev workspace")).toBeInTheDocument()
+			expect(screen.queryByLabelText("Start Docker")).not.toBeInTheDocument()
+		})
+
+		it("sends secondary dev action messages when run, package, and start docker buttons are clicked", () => {
+			mockUseExtensionState.mockReturnValue({
+				sharingEnabled: true,
+				publicSharingEnabled: true,
+				cloudIsAuthenticated: true,
+				mode: "huayun-secondary-dev",
+				secondaryDevRunAndOpenAvailable: true,
+				secondaryDevDockerStartAvailable: true,
+				cloudUserInfo: {
+					organizationName: "Test Organization",
+				},
+			} as any)
+
+			render(<TaskActions item={mockItem} buttonsDisabled={false} />)
+
+			fireEvent.click(screen.getByLabelText("Run and open secondary dev workspace"))
 			fireEvent.click(screen.getByLabelText("Package secondary dev workspace"))
+			fireEvent.click(screen.getByLabelText("Start Docker"))
 
 			expect(mockPostMessage).toHaveBeenCalledWith({
 				type: "runSecondaryDevWorkspace",
 			})
 			expect(mockPostMessage).toHaveBeenCalledWith({
 				type: "packageSecondaryDevWorkspace",
+			})
+			expect(mockPostMessage).toHaveBeenCalledWith({
+				type: "startSecondaryDevDocker",
 			})
 		})
 

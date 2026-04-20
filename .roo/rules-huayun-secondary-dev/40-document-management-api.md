@@ -7,8 +7,12 @@
 - `GET /api/document/project/{projectId}`
     - operationId: `projectDocuments`
     - summary: list all document resources under the specified project by `projectId`
+    - description: use this endpoint to load the document collection of a project, populate project-scoped document trees or lists, and resolve all document resources that belong to one project context
     - required path:
         - `projectId`: string
+    - response schema:
+        - `CommonResultMapStringDocumentVo`
+        - `data`: `Map<string, DocumentVo>`
 
 ### Behavior Rules
 
@@ -41,8 +45,12 @@
 - `GET /api/document/{documentId}`
     - operationId: `getDocumentById`
     - summary: get a document resource and its detail by `documentId`
+    - description: use this endpoint to retrieve one explicit document record, its metadata, ownership fields, project linkage, and other single-document detail information
     - required path:
         - `documentId`: string
+    - response schema:
+        - `CommonResultDocument`
+        - `data`: `Document`
 
 ### Behavior Rules
 
@@ -75,9 +83,13 @@
 - `POST /api/document/rename`
     - operationId: `renameDocument`
     - summary: rename a document resource by `documentId` and `documentName`
+    - description: use this endpoint when the requirement is to change the display name or stored name of one existing document without altering its project binding or document type
     - required query:
         - `documentId`: string
         - `documentName`: string
+    - response schema:
+        - `CommonResultDocument`
+        - `data`: `Document`
 
 ### Behavior Rules
 
@@ -111,6 +123,7 @@
 - `POST /api/document/`
     - operationId: `createDocument`
     - summary: create document
+    - description: use this endpoint to create a new project-scoped document resource such as part, assembly, drawing, or folder-document, optionally under a specific folder path or template
     - required query:
         - `projectId`: string
         - `docName`: string
@@ -118,6 +131,9 @@
     - optional query:
         - `folderPath`: string
         - `templateName`: string
+    - response schema:
+        - `CommonResultCreateDocumentVO`
+        - `data`: `CreateDocumentVO`
 
 ### Behavior Rules
 
@@ -147,8 +163,12 @@
 - `GET /api/document/`
     - operationId: `getDocumentsByIds`
     - summary: batch query documents by explicit document IDs
+    - description: use this endpoint for explicit multi-document lookup when the caller already knows one or more document IDs and needs a mapped result set instead of project-wide listing
     - query:
         - `documentIds`: string array, optional
+    - response schema:
+        - `CommonResultMapStringDocumentVo`
+        - `data`: `Map<string, DocumentVo>`
 
 ### Behavior Rules
 
@@ -177,8 +197,61 @@
 
 - `DELETE /api/document/document`
     - operationId: `deleteDocument`
+    - summary: delete a document resource by the documented document name contract
+    - description: use this endpoint only when the requirement is to remove an existing document resource and the upstream contract is explicitly name-driven rather than ID-driven
     - required query:
         - `documentName`: string
+    - current response note:
+        - latest fetched OpenAPI path exists
+        - current response schema was not explicitly resolved from the fetched content in this update pass
+        - do not invent a deletion payload shape without re-checking the latest OpenAPI when deletion response fields matter
+
+## Response Entity Notes
+
+### `Document`
+
+- key fields:
+    - `id`
+    - `documentType`
+    - `documentName`
+    - `projectId`
+    - `projectName`
+    - `activeVersionId`
+    - `folderCode`
+    - `filePath`
+    - `documentMassAttribute`
+    - `templateId`
+    - `templateDoc`
+    - `ownerName`
+    - `createUserName`
+    - `editorName`
+
+### `DocumentVo`
+
+- key fields:
+    - `id`
+    - `documentType`
+    - `documentName`
+    - `projectId`
+    - `projectName`
+    - `activeVersionId`
+    - `folderCode`
+    - `filePath`
+    - `documentMassAttribute`
+    - `templateId`
+    - `templateDoc`
+    - `ownerName`
+    - `createUserName`
+    - `editorName`
+    - `errorMessage`
+
+### `CreateDocumentVO`
+
+- key fields:
+    - `documentName`
+    - `documentType`
+    - `projectId`
+    - `createTime`
 
 ### Behavior Rules
 
@@ -226,6 +299,35 @@
 - `FolderDocument`
 
 Keep `docType` constrained to the known enum values above unless newer source material explicitly expands them.
+
+### Known Document Response Type Values
+
+The latest fetched OpenAPI currently exposes a broader `DocumentVo.documentType` enum family including:
+
+- `Document`
+- `PartDocument`
+- `AssemblyDocument`
+- `ApplicationDocument`
+- `DrawingDocument`
+- `Drawing3dDocument`
+- `FolderDocument`
+- `PdfDocument`
+- `PictureDocument`
+- `VideoDocument`
+- `MeshDocument`
+- `ToConvertDocument`
+- `VirtualSpaceDocument`
+- `LightDocument`
+- `StructuralProfileDocument`
+- `PlantDocument`
+- `CompositeDocument`
+- `FactoryDocument`
+- `UnSupportedDocument`
+- `PRDocument`
+- `WordDocument`
+- `PptDocument`
+
+Do not use the broader response enum as evidence that creation via `POST /api/document/` supports all of those values. For creation, stay constrained to the documented creation enum unless the OpenAPI explicitly expands that request contract.
 
 ### Folder Boundary Rules
 

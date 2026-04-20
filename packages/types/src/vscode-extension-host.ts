@@ -297,6 +297,7 @@ export type ExtensionState = Pick<
 	| "secondaryDevAuthorizePath"
 	| "secondaryDevAuthorizationUrl"
 	| "secondaryDevFrontendRedirectUrl"
+	| "secondaryDevDebugDocumentId"
 	| "secondaryDevTokenPath"
 	| "secondaryDevTokenUrl"
 	| "secondaryDevScope"
@@ -357,6 +358,8 @@ export type ExtensionState = Pick<
 	renderContext: "sidebar" | "editor"
 	settingsImportedAt?: number
 	historyPreviewCollapsed?: boolean
+	secondaryDevRunAndOpenAvailable?: boolean
+	secondaryDevDockerStartAvailable?: boolean
 
 	cloudUserInfo: CloudUserInfo | null
 	cloudIsAuthenticated: boolean
@@ -563,6 +566,7 @@ export interface WebviewMessage {
 		| "openFrontendPreview"
 		| "runSecondaryDevWorkspace"
 		| "packageSecondaryDevWorkspace"
+		| "startSecondaryDevDocker"
 		| "updateSettings"
 		| "allowedCommands"
 		| "getTaskWithAggregatedCosts"

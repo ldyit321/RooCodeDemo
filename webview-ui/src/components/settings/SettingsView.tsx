@@ -246,6 +246,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		secondaryDevAuthorizePath,
 		secondaryDevAuthorizationUrl,
 		secondaryDevFrontendRedirectUrl,
+		secondaryDevDebugDocumentId,
 		secondaryDevTokenPath,
 		secondaryDevTokenUrl,
 		secondaryDevScope,
@@ -459,6 +460,10 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 				secondaryDevFrontendRedirectUrl,
 				extensionState.secondaryDevFrontendRedirectUrl,
 			)
+			const resolvedSecondaryDevDebugDocumentId = resolveSecondaryDevSetting(
+				secondaryDevDebugDocumentId,
+				extensionState.secondaryDevDebugDocumentId,
+			)
 			const resolvedAuthorizePath =
 				resolveSecondaryDevSetting(secondaryDevAuthorizePath, extensionState.secondaryDevAuthorizePath) ||
 				deriveAuthorizePath(
@@ -552,6 +557,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 					secondaryDevAuthorizePath: resolvedAuthorizePath,
 					secondaryDevAuthorizationUrl: resolvedAuthorizationUrl,
 					secondaryDevFrontendRedirectUrl: resolvedSecondaryDevFrontendRedirectUrl,
+					secondaryDevDebugDocumentId: resolvedSecondaryDevDebugDocumentId,
 					secondaryDevTokenPath: resolvedTokenPath,
 					secondaryDevTokenUrl: resolvedTokenUrl,
 					secondaryDevScope: resolvedSecondaryDevScope,
@@ -1029,6 +1035,7 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 								secondaryDevAuthorizePath={secondaryDevAuthorizePath}
 								secondaryDevAuthorizationUrl={secondaryDevAuthorizationUrl}
 								secondaryDevFrontendRedirectUrl={secondaryDevFrontendRedirectUrl}
+								secondaryDevDebugDocumentId={secondaryDevDebugDocumentId}
 								secondaryDevTokenPath={secondaryDevTokenPath}
 								secondaryDevTokenUrl={secondaryDevTokenUrl}
 								secondaryDevScope={secondaryDevScope}

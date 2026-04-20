@@ -221,6 +221,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		secondaryDevAuthorizePath: "",
 		secondaryDevAuthorizationUrl: "",
 		secondaryDevFrontendRedirectUrl: "",
+		secondaryDevDebugDocumentId: "",
 		secondaryDevTokenPath: "",
 		secondaryDevTokenUrl: "",
 		secondaryDevScope: "",

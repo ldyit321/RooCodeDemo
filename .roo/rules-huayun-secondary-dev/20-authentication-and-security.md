@@ -76,6 +76,7 @@
 - The raw Client Secret value may be intentionally hidden from prompts and generated frontend code for security; treat configured secret state as an already-available backend secret binding, not as a missing value.
 - OAuth token exchange code must populate the `client_secret` form field from the configured secret source, not from hardcoded literals or user chat messages.
 - For generated standalone backend projects, write HUAYUN secondary-development configuration into a backend `.env` file or `.env` template by default.
+- For generated standalone Python backend projects, default to the standard runnable HUAYUN layout with `backend/app/main.py` as the application entrypoint, `backend/pyproject.toml` as the manifest, and `backend/.env` or `backend/.env.example` as the config template.
 - Backend runtime and auth code should read Base URL, Client ID, Client Secret, authorization path, token path, redirect URL, and scope from `.env`-backed environment variables or a centralized settings module that loads `.env`.
 - Never print, echo, log, persist in generated source, or include the raw Client Secret in documentation, examples, commit messages, or responses.
 - For generated backend code, prefer reading the secret from a config module, backend secret provider, or environment variable binding such as `HUAYUN_CLIENT_SECRET`.
@@ -88,7 +89,13 @@
 - Backend-only token handling is a built-in default rule in HUAYUN secondary development and must not depend on the user restating it.
 - The final OAuth token result must remain backend-only in HUAYUN secondary development by default.
 - Do not expose raw `access_token`, `refresh_token`, or similar token payloads to frontend code, browser storage, URL parameters, HTML output, or user-visible debug pages.
-- Frontend code should communicate with backend session, cookie, or proxy endpoints after login instead of directly receiving or storing raw token values.
+- Because HUAYUN plugins are commonly embedded as iframes inside other systems, do not rely on a cookie-only session design.
+- Generated frontend/backend session handling must use a Cookie + Header dual-channel strategy.
+- The backend must issue and validate a backend-controlled session through both an HttpOnly cookie and a header fallback channel such as `X-Huayun-Session`.
+- The header fallback must contain only a backend-issued session identifier or signed session token, never the raw OAuth token payload.
+- Frontend request code should communicate with backend session or proxy endpoints after login and should send both `credentials: include` and the configured session header when a backend-issued session value is available.
+- Backend auth middleware and proxy layers should accept the cookie channel first and fall back to the configured session header when cookie delivery fails because of iframe embedding, third-party cookie restrictions, cross-site, or browser privacy behavior.
+- Backend CORS and session settings must explicitly allow the credentialed iframe case and the configured custom session header.
 - If frontend login success needs to be indicated, return only minimal session status or user-facing state, not the raw token payload.
 
 ## Default Redirect Callback Contract
@@ -136,7 +143,9 @@
 - If scope verification is needed, compare the returned `scope` value with the scopes requested by the current feature flow.
 - If the repository already has auth utilities, extend them instead of creating a parallel auth stack.
 - If the repository has no auth code yet, create the minimum required bootstrap and keep the implementation easy to replace.
-- For frontend implementation choice, prefer Vue by default unless the task is explicitly tiny/static or the user explicitly requests native frontend.
+- For iframe-delivered plugin scenarios, make the session header name centralized in backend/frontend config instead of scattering hardcoded header literals across modules.
+- For frontend implementation choice, use Vue as the required default in HUAYUN secondary development.
+- Do not switch to plain JavaScript plus HTML/CSS as the primary frontend path unless the rule set is explicitly revised for that project.
 
 ## Alternative Schemes
 

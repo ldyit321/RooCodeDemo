@@ -54,8 +54,28 @@ This file defines non-negotiable API usage rules for `huayun-secondary-dev`.
 - Only after the rule-material mapping is clear may business implementation code be used to choose where to place wrappers, routes, services, or UI.
 - Do not reverse this order.
 - Do not use absence of local wrappers, services, or proxy files as evidence that a rule-defined upstream API is missing.
+- Once the current task is conclusively answered by the earliest authoritative rule layer, stop expanding rule lookup.
+- Do not continue broad searches across unrelated modules after a clear rule-material conclusion has already been reached.
 - If thin skill guidance is broader than a module rule file, follow the module rule file.
 - If `AGENTS.md` guidance is broader than HUAYUN rules, follow HUAYUN rules for API truth and use `AGENTS.md` only for repository workflow constraints.
+
+## Frontend And Proxy Accuracy Constraints
+
+- For frontend-backend integration, do not stop at matching a nominal endpoint path; also confirm the request method, request parameter position, route prefix, and runtime base URL source.
+- Do not treat an API as correctly wired merely because the frontend code contains a similar-looking path string.
+- Do not infer frontend proxy targets, backend local ports, or backend route prefixes from habit or generic framework defaults when current project configuration or runtime settings provide a more authoritative source.
+- Do not hardcode or guess frontend proxy destinations when the task depends on current runtime configuration, `secondaryDevBaseUrl`, frontend env files, dev-server proxy settings, or other project-local configuration.
+- When generating frontend request code, preserve the exact upstream `Method + Path` semantics after proxy translation; do not silently change method, prefix, or parameter location during frontend abstraction.
+- When generating backend proxy routes or adapter routes, ensure the exposed frontend-facing path and the upstream target path remain intentionally mapped; do not allow duplicate prefixes, dropped prefixes, or accidental path rewrites.
+- If the task depends on a frontend request reaching a backend route, accuracy of the request target is a required part of completion, not an optional extra check.
+
+## Execution Scope Constraints
+
+- Keep each HUAYUN task scoped to the user’s current objective; do not automatically attach nearby enhancements, side quests, or cleanup work unless required.
+- Prefer minimum sufficient API lookup, minimum sufficient code change, and minimum sufficient validation for the current request.
+- For large requests, prefer staged implementation over a single oversized execution path when staging materially reduces risk, latency, or stream instability.
+- Do not spend long analysis budgets restating already-known HUAYUN background when the current project rules already establish it.
+- Default to concise conclusions and concrete next actions instead of long exploratory narration.
 
 ## Current Known API Scope
 

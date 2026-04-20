@@ -19,6 +19,7 @@ import {
 	EyeIcon,
 	PlayIcon,
 	PackageIcon,
+	ContainerIcon,
 } from "lucide-react"
 import { LucideIconButton } from "./LucideIconButton"
 
@@ -31,7 +32,7 @@ export const TaskActions = ({ item, buttonsDisabled }: TaskActionsProps) => {
 	const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null)
 	const { t } = useTranslation()
 	const { copyWithFeedback, showCopyFeedback } = useCopyToClipboard()
-	const { debug, mode } = useExtensionState()
+	const { debug, mode, secondaryDevDockerStartAvailable } = useExtensionState()
 	const isHuayunSecondaryDevMode = mode === "huayun-secondary-dev"
 
 	return (
@@ -45,15 +46,24 @@ export const TaskActions = ({ item, buttonsDisabled }: TaskActionsProps) => {
 				<>
 					<LucideIconButton
 						icon={PlayIcon}
-						title="Run secondary dev workspace"
+						title="Run and open secondary dev workspace"
 						onClick={() => vscode.postMessage({ type: "runSecondaryDevWorkspace" })}
 					/>
-					<LucideIconButton
-						icon={PackageIcon}
-						title="Package secondary dev workspace"
-						onClick={() => vscode.postMessage({ type: "packageSecondaryDevWorkspace" })}
-					/>
 				</>
+			)}
+			{isHuayunSecondaryDevMode && (
+				<LucideIconButton
+					icon={PackageIcon}
+					title="Package secondary dev workspace"
+					onClick={() => vscode.postMessage({ type: "packageSecondaryDevWorkspace" })}
+				/>
+			)}
+			{isHuayunSecondaryDevMode && secondaryDevDockerStartAvailable && (
+				<LucideIconButton
+					icon={ContainerIcon}
+					title="Start Docker"
+					onClick={() => vscode.postMessage({ type: "startSecondaryDevDocker" })}
+				/>
 			)}
 			<LucideIconButton
 				icon={EyeIcon}
